@@ -1,3 +1,4 @@
+````
      _____    _____________  ___ .___                               
     /     \  /   _____/\   \/  / |   | _____ _____     ____   ____  
    /  \ /  \ \_____  \  \     /  |   |/     \\__  \   / ___\_/ __ \ 
@@ -62,3 +63,4 @@ Options:
       bin          Binary data (11001100b; asm only)
    -skip           Skip empty sprites (default: false)
    -help           Display this help
+```` 
