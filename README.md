@@ -5,9 +5,10 @@
   /    Y    \/        \ /     \  |   |  Y Y  \/ __ \_/ /_/  >  ___/ 
   \____|__  /_______  //___/\  \ |___|__|_|  (____  /\___  / \___  >
           \/        \/       \_/           \/     \//_____/      \/ 
-
  by Guillaume "Aoineko" Blanchard (aoineko@free.fr)
  under CC-BY-AS license (https://creativecommons.org/licenses/by-sa/2.0/)
+
+Command line tool to create images table to add to MSX programs (C/ASM/Bin)
 
 Usage: MSXImage [options]
 
