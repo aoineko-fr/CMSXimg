@@ -10,7 +10,7 @@
 
 Command line tool to create images table to add to MSX programs (C/ASM/Bin)
 
-Usage: MSXImage [options]
+Usage: MSXImage -in <filename> -out <filename> [options]
 
 Options:
    -in fileName    Inuput file name. Can be 8/16/24/32 bits image
@@ -26,10 +26,10 @@ Options:
    -size x y       Width/height of a block to export (if 0, use image size)
    -num x y        Number of block to export (columns/rows number)
    -trans color    Transparency color (in RGB 24 bits format : 0xFFFFFF)
-   -bpc ?	       Number of bits per color for the output image (support 1, 4 and 8-bits)
-      1	           1-bit black & white (0: tranparency or black, 1: other colors)
-      4	           4-bits index in 16 colors palette
-      8	           8 bits RGB 256 colors (format: [G:3|R:3|B2]; default)
+   -bpc ?           Number of bits per color for the output image (support 1, 4 and 8-bits)
+      1               1-bit black & white (0: tranparency or black, 1: other colors)
+      4               4-bits index in 16 colors palette
+      8               8 bits RGB 256 colors (format: [G:3|R:3|B2]; default)
    -pal            Palette to use for 16 colors mode
       msx1         Use default MSX1 palette
       custom       Generate a custom palette and add it to the output file
@@ -45,6 +45,8 @@ Options:
       rle0         Run-length encoding of transparent blocs (7-bits for block length)
       rle4         Run-length encoding for all colors (4-bits for block length)
       rle8         Run-length encoding for all colors (8-bits for block length)
+      auto         Determine a good compression method according to parameters
+      best         Search for best compressor according to input parameters (smallest data)
    -dither ?       Dithering method (for 1-bit color only)
       none         No dithering (default)
       floyd        Floyd & Steinberg error diffusion algorithm
@@ -63,8 +65,9 @@ Options:
       hexa#        Hexadecimal data (#FF; asm only)
       bin          Binary data (11001100b; asm only)
    -skip           Skip empty sprites (default: false)
+   -head           Add a header table contening input parameters (default: false)
    -help           Display this help
-
+   
 Example:
 
 > MSXImage -in cars.png -out test_4_rle0.h -pos 0 0 -size 13 11 -num 16 4 -name g_Cars -trans 0xE300E3 -bpc 4 -pal custom -compress rle0
