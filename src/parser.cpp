@@ -85,12 +85,14 @@ u8 GetGBR8(u32 color, u32 transRGB)
 bool ParseImage(ExportParameters* param, ExporterInterface* exp)
 {
 	FIBITMAP *dib, *dib32, *dib4, *dib1;
-	i32 i, j, nx, ny, bit, minX, maxX, minY, maxY, totalBytes = 0;
+	i32 i, j, nx, ny, bit, minX, maxX, minY, maxY;
 	RGB24 c24;
 	GRB8 c8;
 	u8 c4, byte = 0;
 	char strData[256];
 	u32 transRGB = 0x00FFFFFF & param->transColor;
+	u32 headAddr = 0, palAddr = 0;
+	std::vector<u32> sprtAddr;
 
 	dib = LoadImage(param->inFile); // open and load the file using the default load option
 	if (dib == NULL)
@@ -147,22 +149,43 @@ bool ParseImage(ExportParameters* param, ExporterInterface* exp)
 	}
 
 	// Build header file
-	totalBytes += exp->WriteHeader();
-	totalBytes += exp->WriteTableBegin(param->tabName, "Data table");
+	exp->WriteHeader();
 
+	//-------------------------------------------------------------------------
+	// HEADER TABLE
+
+	if (param->bAddHeader)
+	{
+		sprintf_s(strData, 256, "%s_header", param->tabName);
+		exp->WriteTableBegin(strData, "Header table");
+
+		exp->Write2WordsLine((u16)param->posX, (u16)param->posY, "Start position (X Y)");
+		exp->Write2WordsLine((u16)param->sizeX, (u16)param->sizeY, "Sprite size (X Y)");
+		exp->Write2WordsLine((u16)param->numX, (u16)param->numY, "Sprite count (X Y)");
+		exp->Write1ByteLine((u8)param->bpc, "Bits per color");
+		exp->Write1ByteLine((u8)param->comp, "Compressor");
+		exp->Write1ByteLine(param->bSkipEmpty ? 1 : 0, "Skip empty");
+
+		exp->WriteTableEnd("");
+	}
+
+	//-------------------------------------------------------------------------
+	// SPRITE TABLE
+
+	exp->WriteTableBegin(param->tabName, "Data table");
 	// Parse source image
 	for(ny = 0; ny < param->numY; ny++)
 	{
 		for (nx = 0; nx < param->numX; nx++)
 		{
 			// Print sprite header
-			totalBytes += exp->WriteSpriteHeader(nx + ny * param->numX, totalBytes);
+			exp->WriteSpriteHeader(nx + (ny * param->numX));
 
-			//--------------------------------------------------------------------------
+			//-----------------------------------------------------------------
 			//
 			// RLE compression
 			//
-			//--------------------------------------------------------------------------
+			//-----------------------------------------------------------------
 			if (param->comp & COMPRESS_RLE_Mask)
 			{
 				i32 maxLength;
@@ -222,16 +245,16 @@ bool ParseImage(ExportParameters* param, ExporterInterface* exp)
 				// Write hash table
 				for (u32 k = 0; k < hashTable.size(); k++)
 				{
-					totalBytes += exp->WriteLineBegin();
+					exp->WriteLineBegin();
 					if (param->comp == COMPRESS_RLE0) // Transparency color Run-length encoding
 					{
 						if (hashTable[k].color == transRGB)
 						{
-							totalBytes += exp->Write1ByteData(0x80 + (u8)hashTable[k].length);
+							exp->Write1ByteData(0x80 + (u8)hashTable[k].length);
 						}
 						else
 						{
-							totalBytes += exp->Write1ByteData((u8)hashTable[k].length);
+							exp->Write1ByteData((u8)hashTable[k].length);
 							if (param->bpc == 4) // 4-bits index color palette
 							{
 								u8 byte;
@@ -249,7 +272,7 @@ bool ParseImage(ExportParameters* param, ExporterInterface* exp)
 										byte |= (c4 << 4); // First pixel use higher bits
 									if ((l & 0x1) || (l == hashTable[k].data.size() - 1))
 									{
-										totalBytes += exp->Write1ByteData(byte);
+										exp->Write1ByteData(byte);
 										byte = 0;
 									}
 								}
@@ -259,7 +282,7 @@ bool ParseImage(ExportParameters* param, ExporterInterface* exp)
 								for (u32 l = 0; l < hashTable[k].data.size(); l++)
 								{
 									c8 = GetGBR8(hashTable[k].data[l], transRGB);
-									totalBytes += exp->Write1ByteData(c8);
+									exp->Write1ByteData(c8);
 								}
 							}
 						}
@@ -275,37 +298,37 @@ bool ParseImage(ExportParameters* param, ExporterInterface* exp)
 							else
 								c4 = GetNearestColorIndex(rgb, pal, param->palCount);
 							u8 byte = ((0x0F & hashTable[k].length) << 4) + c4;
-							totalBytes += exp->Write1ByteData(byte);
+							exp->Write1ByteData(byte);
 						}
 					}
 					else if (param->comp == COMPRESS_RLE8) // Full color 8bits Run-length encoding
 					{
 						if (param->bpc == 4) // 4-bits index color palette
 						{
-							totalBytes += exp->Write1ByteData((u8)hashTable[k].length);
+							exp->Write1ByteData((u8)hashTable[k].length);
 							u32 rgb = hashTable[k].color;
 							u32* pal = (param->palType == PALETTE_MSX1) ? PaletteMSX : customPalette;
 							if (param->bUseTrans)
 								c4 = (rgb == transRGB) ? 0x0 : GetNearestColorIndex(rgb, pal, param->palCount);
 							else
 								c4 = GetNearestColorIndex(rgb, pal, param->palCount);
-							totalBytes += exp->Write1ByteData(c4);
+							exp->Write1ByteData(c4);
 						}
 						else if (param->bpc == 8) // 8-bits GBR color
 						{
-							totalBytes += exp->Write1ByteData((u8)hashTable[k].length);
+							exp->Write1ByteData((u8)hashTable[k].length);
 							c8 = GetGBR8(hashTable[k].color, transRGB);
-							totalBytes += exp->Write1ByteData(c8);
+							exp->Write1ByteData(c8);
 						}
 					}
-					totalBytes += exp->WriteLineEnd();
+					exp->WriteLineEnd();
 				}
 			}
-			//--------------------------------------------------------------------------
+			//-----------------------------------------------------------------
 			//
 			// Crop & No compression
 			//
-			//--------------------------------------------------------------------------
+			//-----------------------------------------------------------------
 			else
 			{
 				minX = 0;
@@ -366,13 +389,13 @@ bool ParseImage(ExportParameters* param, ExporterInterface* exp)
 							maxX &= 0x0F;
 							minY &= 0x0F;
 							maxY &= 0x0F;
-							totalBytes += exp->Write2BytesLine(u8((minX << 4) + maxX), u8(((minY) << 4) + maxY), "[minX:4|maxX:4] [minY:4|maxY:4]");
+							exp->Write2BytesLine(u8((minX << 4) + maxX), u8(((minY) << 4) + maxY), "[minX:4|maxX:4] [minY:4|maxY:4]");
 						}
 						else if (param->comp == COMPRESS_CropLine16)
 						{
 							minY &= 0x0F;
 							maxY &= 0x0F;
-							totalBytes += exp->Write1ByteLine(u8((minY << 4) + maxY), "[minY:4|maxY:4]");
+							exp->Write1ByteLine(u8((minY << 4) + maxY), "[minY:4|maxY:4]");
 						}
 						else if (param->comp == COMPRESS_Crop32)
 						{
@@ -382,22 +405,22 @@ bool ParseImage(ExportParameters* param, ExporterInterface* exp)
 							if (minY > 0x07)
 								minY = 0x07; // Max to 3bits (0-7)
 							maxY &= 0x1F;    // Clamp to 5bits (0-31)
-							totalBytes += exp->Write2BytesLine(u8((minX << 5) + maxX), u8(((minY) << 5) + maxY), "[minX:3|maxX:5] [minY:3|maxY:5]");
+							exp->Write2BytesLine(u8((minX << 5) + maxX), u8(((minY) << 5) + maxY), "[minX:3|maxX:5] [minY:3|maxY:5]");
 						}
 						else if (param->comp == COMPRESS_CropLine32)
 						{
 							if (minY > 0x07)
 								minY = 0x07; // Max to 3bits (0-7)
 							maxY &= 0x1F;    // Clamp to 5bits (0-31)
-							totalBytes += exp->Write1ByteLine(u8(((minY) << 5) + maxY), "[minY:3|maxY:5]");
+							exp->Write1ByteLine(u8(((minY) << 5) + maxY), "[minY:3|maxY:5]");
 						}
 						else if (param->comp == COMPRESS_Crop256)
 						{
-							totalBytes += exp->Write4BytesLine(u8(minX), u8(maxX), u8(minY), u8(maxY), "[minX] [maxX] [minY] [maxY]");
+							exp->Write4BytesLine(u8(minX), u8(maxX), u8(minY), u8(maxY), "[minX] [maxX] [minY] [maxY]");
 						}
 						else if (param->comp == COMPRESS_CropLine256)
 						{
-							totalBytes += exp->Write2BytesLine(u8(minY), u8(maxY), "[minY] [maxY]");
+							exp->Write2BytesLine(u8(minY), u8(maxY), "[minY] [maxY]");
 						}
 					}
 				}
@@ -424,29 +447,33 @@ bool ParseImage(ExportParameters* param, ExporterInterface* exp)
 										maxX = i;
 								}
 							}
+							if (param->bpc == 4) // 4-bits index color palette
+							{
+								minX &= 0xFE; // round 2
+							}
 
 							// Add row range info
 							if (param->comp == COMPRESS_CropLine16)
 							{
 								minX &= 0x0F;	 // Clamp to 4bits (0-15)
 								maxX &= 0x0F;	 // Clamp to 4bits (0-15)
-								totalBytes += exp->Write1ByteLine(u8((minX << 4) + maxX), "[minX:4|maxX:4]");
+								exp->Write1ByteLine(u8((minX << 4) + maxX), "[minX:4|maxX:4]");
 							}
 							else if (param->comp == COMPRESS_CropLine32)
 							{
 								if (minX > 0x07)
 									minX = 0x07; // Clamp to 3bits (0-7)
 								maxX &= 0x1F;	 // Clamp to 5bits (0-31)
-								totalBytes += exp->Write1ByteLine(u8(((minX) << 5) + maxX), "[minX:3|maxX:5]");
+								exp->Write1ByteLine(u8(((minX) << 5) + maxX), "[minX:3|maxX:5]");
 							}
 							else if (param->comp == COMPRESS_CropLine256)
 							{
-								totalBytes += exp->Write2BytesLine(u8(minX), u8(maxX), "[minX] [maxX]");
+								exp->Write2BytesLine(u8(minX), u8(maxX), "[minX] [maxX]");
 							}
 						}
 
 						// Add sprinte data
-						totalBytes += exp->WriteLineBegin();
+						exp->WriteLineBegin();
 						byte = 0;
 						for (i = 0; i < param->sizeX; i++)
 						{
@@ -458,7 +485,7 @@ bool ParseImage(ExportParameters* param, ExporterInterface* exp)
 								{
 									// convert to 8 bits GRB
 									c8 = GetGBR8(rgb, transRGB);
-									totalBytes += exp->Write1ByteData((u8)c8);
+									exp->Write1ByteData((u8)c8);
 								}
 								else if (param->bpc == 4) // 4-bits index color palette
 								{
@@ -474,7 +501,7 @@ bool ParseImage(ExportParameters* param, ExporterInterface* exp)
 										byte |= (c4 << 4); // First pixel use higher bits
 									if ((i & 0x1) || (i == maxX))
 									{
-										totalBytes += exp->Write1ByteData(byte);
+										exp->Write1ByteData(byte);
 										byte = 0;
 									}
 								}
@@ -493,41 +520,43 @@ bool ParseImage(ExportParameters* param, ExporterInterface* exp)
 									}
 									if (((pixel & 0x7) == 0x7) || (i == maxX))
 									{
-										totalBytes += exp->Write8BitsData(byte);
+										exp->Write8BitsData(byte);
 										byte = 0;
 									}
 								}
 							}
 						}
-						totalBytes += exp->WriteLineEnd();
+						exp->WriteLineEnd();
 					}
 				}
 			}
 		}
 	}
-	sprintf_s(strData, 256, "Total size : % i bytes", totalBytes);
-	totalBytes += exp->WriteTableEnd(strData);
+	sprintf_s(strData, 256, "Total size : % i bytes", exp->GetTotalBytes());
+	exp->WriteTableEnd(strData);
 
 	delete bits;
 
-	// Write palette
+	//-------------------------------------------------------------------------
+	// PALETTE TABLE
+
 	if ((param->bpc == 4) && (param->palType == PALETTE_Custom))
 	{
 		sprintf_s(strData, 256, "%s_palette", param->tabName);
-		totalBytes += exp->WriteTableBegin(strData, "Custom palette | Format: [X|R:3|X|B:3] [X:5|G:3]");
+		exp->WriteTableBegin(strData, "Custom palette | Format: [X|R:3|X|B:3] [X:5|G:3]");
 		for (i32 i = 1; i <= param->palCount; i++)
 		{
 			RGB24 color(customPalette[i]);
 			u8 c1 = ((color.R >> 5) << 4) + (color.B >> 5);
 			u8 c2 = (color.G >> 5);
 			sprintf_s(strData, 256, "[%2i] #%06X", i, customPalette[i]);
-			totalBytes += exp->Write2BytesLine(u8(c1), u8(c2), strData);
+			exp->Write2BytesLine(u8(c1), u8(c2), strData);
 		}
-		totalBytes += exp->WriteTableEnd("");
+		exp->WriteTableEnd("");
 	}
 
 	// Write file
-	bool bSaved = exp->Save();
+	bool bSaved = exp->Export();
 
 	return bSaved;
 }

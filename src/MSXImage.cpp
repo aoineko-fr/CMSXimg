@@ -37,7 +37,7 @@ enum Format
 //const char* ARGV[] = { "", "-in", "test/cars.png", "-out", "test/sprt_car_1.h", "-pos", "0", "0", "-size", "13", "11", "-num", "16", "1", "-name", "g_Car1", "-trans", "0xE300E3", "-compress", "cropline16", "-format", "asm", "-data", "dec" };
 //const char* ARGV[] = { "", "-in", "test/cars.png", "-out", "test/sprt_car_1.h", "-pos", "0", "0", "-size", "13", "11", "-num", "16", "1", "-name", "g_Car1", "-trans", "0xE300E3", "-compress", "cropline32" };
 //const char* ARGV[] = { "", "-in", "test/track_tiles.png", "-out", "test/sprt_track.h", "-pos", "0", "0", "-size", "32", "32", "-num", "8", "4", "-name", "g_TrackTiles", "-trans", "0xDA48AA", "-bpc", "1", "-compress", "crop256", "-dither", "cluster8" };
-//const char* ARGV[] = { "", "-in", "test/test_sprt.png", "-out", "test/sprt_player.h", "-pos", "0", "0", "-size", "16", "16", "-num", "11", "8", "-name", "g_PlayerSprite", "-trans", "0x336600", "-bpc", "8", "-pal", "custom", "-compress", "rle4" };
+//const char* ARGV[] = { "", "-in", "test/test_sprt.png", "-out", "test/sprt_player.h", "-pos", "0", "0", "-size", "16", "16", "-num", "11", "8", "-name", "g_PlayerSprite", "-trans", "0x336600", "-bpc", "4", "-pal", "custom", "-compress", "best" };
 //#define DEBUG_ARGS
 
 //-----------------------------------------------------------------------------
@@ -81,6 +81,8 @@ void PrintHelp()
 	printf("      rle0         Run-length encoding of transparent blocs (7-bits for block length)\n");
 	printf("      rle4         Run-length encoding for all colors (4-bits for block length)\n");
 	printf("      rle8         Run-length encoding for all colors (8-bits for block length)\n");
+	printf("      auto         Determine a good compression method according to parameters\n");
+	printf("      best         Search for best compressor according to input parameters (smallest data)\n");
 	printf("   -dither ?       Dithering method (for 1-bit color only)\n");
 	printf("      none         No dithering (default)\n");
 	printf("      floyd        Floyd & Steinberg error diffusion algorithm\n");
@@ -99,6 +101,7 @@ void PrintHelp()
 	printf("      hexa#        Hexadecimal data (#FF; asm only)\n");
 	printf("      bin          Binary data (11001100b; asm only)\n");
 	printf("   -skip           Skip empty sprites (default: false)\n");
+	printf("   -head           Add a header table contening input parameters (default: false)\n");
 	printf("   -help           Display this help\n");
 }
 
@@ -117,6 +120,8 @@ int main(int argc, const char* argv[])
 	Format outFormat = FORMAT_Auto;
 	ExportParameters param;
 	i32 i;
+	bool bAutoCompress = false;
+	bool bBestCompress = false;
 
 	if(argc < 2)
 	{
@@ -124,6 +129,8 @@ int main(int argc, const char* argv[])
 		return 1;
 	}
 
+	//-------------------------------------------------------------------------
+	// Parse parameters
 	for(i=1; i<argc; i++)
 	{
 		if (_stricmp(argv[i], "-help") == 0)
@@ -202,16 +209,20 @@ int main(int argc, const char* argv[])
 				param.comp = COMPRESS_Crop32;
 			else if (_stricmp(argv[i], "cropline32") == 0)
 				param.comp = COMPRESS_CropLine32;
-			else if(_stricmp(argv[i], "crop256") == 0)
+			else if (_stricmp(argv[i], "crop256") == 0)
 				param.comp = COMPRESS_Crop256;
 			else if (_stricmp(argv[i], "cropline256") == 0)
 				param.comp = COMPRESS_CropLine256;
-			else if(_stricmp(argv[i], "rle0") == 0)
+			else if (_stricmp(argv[i], "rle0") == 0)
 				param.comp = COMPRESS_RLE0;
 			else if (_stricmp(argv[i], "rle4") == 0)
 				param.comp = COMPRESS_RLE4;
 			else if (_stricmp(argv[i], "rle8") == 0)
 				param.comp = COMPRESS_RLE8;
+			else if (_stricmp(argv[i], "auto") == 0)
+				bAutoCompress = true;
+			else if (_stricmp(argv[i], "best") == 0)
+				bBestCompress = true;
 			else
 				param.comp = COMPRESS_None;
 		}
@@ -257,8 +268,105 @@ int main(int argc, const char* argv[])
 		{
 			param.bSkipEmpty = true;
 		}
+		else if (_stricmp(argv[i], "-head") == 0)
+		{
+			param.bAddHeader = true;
+		}
 	}
 
+	//-------------------------------------------------------------------------
+	// Determine a valid compression method according to input parameters
+	if (bAutoCompress)
+	{
+		param.comp = COMPRESS_None;
+		if ((param.sizeX != 0) && (param.sizeY != 0))
+		{
+			if (param.bUseTrans)
+			{
+				if (param.bpc == 1)
+				{
+					if ((param.sizeX <= 16) && (param.sizeY <= 16))
+						param.comp = COMPRESS_Crop16;
+					else if ((param.sizeX <= 32) && (param.sizeY <= 32))
+						param.comp = COMPRESS_Crop32;
+					else if ((param.sizeX <= 256) && (param.sizeY <= 256))
+						param.comp = COMPRESS_Crop256;
+				}
+				else // bpc == 4 or 8
+				{
+					if ((param.sizeX <= 16) && (param.sizeY <= 16))
+						param.comp = COMPRESS_CropLine16;
+					else if ((param.sizeX <= 32) && (param.sizeY <= 32))
+						param.comp = COMPRESS_CropLine32;
+					else if ((param.sizeX <= 256) && (param.sizeY <= 256))
+						param.comp = COMPRESS_CropLine256;
+				}
+			}
+			else
+			{
+				if (param.bpc == 4)
+					param.comp = COMPRESS_RLE4;
+			}
+		}
+		printf("Auto compress: %s method selected\n", GetCompressorName(param.comp));
+	}
+	
+	//-------------------------------------------------------------------------
+	// Search for best compressor according to input parameters
+	if (bBestCompress)
+	{
+		printf("Start benchmark to find the best compressor\n");
+		static const Compressor compTable[] =
+		{
+			COMPRESS_None,
+			COMPRESS_Crop16,
+			COMPRESS_CropLine16,
+			COMPRESS_Crop32,
+			COMPRESS_CropLine32,
+			COMPRESS_Crop256,
+			COMPRESS_CropLine256,
+			COMPRESS_RLE0,
+			COMPRESS_RLE4,
+			COMPRESS_RLE8
+		};
+
+		u32 bestSize = 0;
+		Compressor bestComp = COMPRESS_None;
+
+		for (i32 i = 0; i < numberof(compTable); i++)
+		{
+			param.comp = compTable[i];
+			printf("- Check %s... ", GetCompressorName(param.comp, true));
+			if (IsCompressorCompatible(param.comp, param))
+			{
+				ExporterInterface* exp = new ExporterDummy(param.dataType, &param);
+				bool bSucceed = ParseImage(&param, exp);
+				if (bSucceed)
+				{
+					printf("Generated data: %i bytes\n", exp->GetTotalBytes());
+					if ((bestSize == 0) || (exp->GetTotalBytes() < bestSize))
+					{
+						bestSize = exp->GetTotalBytes();
+						bestComp = param.comp;
+					}
+				}
+				else
+				{
+					printf("Parse error!\n");
+				}
+				delete exp;
+			}
+			else
+			{
+				printf("Incompatible!\n");
+			}
+		}
+
+		printf("- Best compressor selected: %s\n", GetCompressorName(bestComp));
+		param.comp = bestComp;
+	}
+
+	//-------------------------------------------------------------------------
 	// Validate parameters
 	if (param.inFile == NULL)
 	{
@@ -313,35 +421,29 @@ int main(int argc, const char* argv[])
 		printf("Warning: Dithering only work with 1-bit color format (current is %i-bits). Dithering value will be ignored.\n", param.bpc);
 	}
 
-	// Create palette
-	/*if(param.inFile == NULL && param.bpc == 4)
-	{
-		Create16ColorsPalette(param.outFile ? param.outFile : "msx_16.act");
-	}
-	else if(param.inFile == NULL && param.bpc == 8)
-	{
-		Create256ColorsPalette(param.outFile ? param.outFile : "msx_256.act");
-	}*/
-
 	bool bSucceed = false;
 
+	//-------------------------------------------------------------------------
 	// Convert
 	if(param.inFile && param.outFile)
 	{
 		if((outFormat == FORMAT_C) || ((outFormat == FORMAT_Auto) && (strstr(param.outFile, ".h") || strstr(param.outFile, ".inc"))))
 		{
-			ExporterInterface* expInter = new ExporterC(param.dataType, &param);
-			bSucceed = ParseImage(&param, expInter);
+			ExporterInterface* exp = new ExporterC(param.dataType, &param);
+			bSucceed = ParseImage(&param, exp);
+			delete exp;
 		}
 		else if((outFormat == FORMAT_Asm) || ((outFormat == FORMAT_Auto) && (strstr(param.outFile, ".s") || strstr(param.outFile, ".asm"))))
 		{
-			ExporterInterface* expInter = new ExporterASM(param.dataType, &param);
-			bSucceed = ParseImage(&param, expInter);
+			ExporterInterface* exp = new ExporterASM(param.dataType, &param);
+			bSucceed = ParseImage(&param, exp);
+			delete exp;
 		}
 		else if((outFormat == FORMAT_Bin) || ((outFormat == FORMAT_Auto) && (strstr(param.outFile, ".bin") || strstr(param.outFile, ".raw"))))
 		{
-			ExporterInterface* expInter = new ExporterBin(param.dataType, &param);
-			bSucceed = ParseImage(&param, expInter);
+			ExporterInterface* exp = new ExporterBin(param.dataType, &param);
+			bSucceed = ParseImage(&param, exp);
+			delete exp;
 		}
 		else
 		{

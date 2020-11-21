@@ -10,7 +10,7 @@
 
 #pragma once
 
-#define VERSION "1.6.3"
+#define VERSION "1.7.0"
 
 //-----------------------------------------------------------------------------
 // integer types
@@ -42,3 +42,5 @@ typedef double             f64; ///< 64 bits floating-point
 // character types
 typedef char               c8;	///<  8 bits character
 typedef wchar_t            c16;	///< 16 bits character
+
+#define numberof(tab) sizeof(tab) / sizeof(tab[0])
