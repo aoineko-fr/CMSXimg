@@ -197,6 +197,7 @@
     <ClInclude Include="src\color.h" />
     <ClInclude Include="src\exporter.h" />
     <ClInclude Include="src\image.h" />
+    <ClInclude Include="src\msxi.h" />
     <ClInclude Include="src\parser.h" />
     <ClInclude Include="src\types.h" />
   </ItemGroup>

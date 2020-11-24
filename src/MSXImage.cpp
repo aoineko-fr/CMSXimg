@@ -18,6 +18,7 @@
 // FreeImage
 #include "FreeImage.h"
 // MSXImage
+#include "msxi.h"
 #include "types.h"
 #include "color.h"
 #include "exporter.h"
@@ -47,7 +48,8 @@ enum Format
 void PrintHelp()
 {
 	printf("MSXImage (v%s)\n", VERSION);
-	printf("Usage: MSXImage [options]\n");
+	printf("Usage: MSXImage -in <filename> -out <filename> [options]\n");
+	printf("\n");
 	printf("Options:\n");
 	printf("   -in fileName    Inuput file name. Can be 8/16/24/32 bits image\n");
 	printf("                   Supported format: BMP, JPEG, PCX, PNG, TGA, PSD, GIF, etc.\n");
