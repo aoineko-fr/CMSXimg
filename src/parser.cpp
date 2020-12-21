@@ -92,7 +92,7 @@ bool ParseImage(ExportParameters* param, ExporterInterface* exp)
 	char strData[256];
 	u32 transRGB = 0x00FFFFFF & param->transColor;
 	u32 headAddr = 0, palAddr = 0;
-	std::vector<u32> sprtAddr;
+	std::vector<u16> sprtAddr;
 
 	dib = LoadImage(param->inFile); // open and load the file using the default load option
 	if (dib == NULL)
@@ -159,7 +159,6 @@ bool ParseImage(ExportParameters* param, ExporterInterface* exp)
 		sprintf_s(strData, 256, "%s_header", param->tabName);
 		exp->WriteTableBegin(strData, "Header table");
 
-		exp->Write2WordsLine((u16)param->posX, (u16)param->posY, "Start position (X Y)");
 		exp->Write2WordsLine((u16)param->sizeX, (u16)param->sizeY, "Sprite size (X Y)");
 		exp->Write2WordsLine((u16)param->numX, (u16)param->numY, "Sprite count (X Y)");
 		exp->Write1ByteLine((u8)param->bpc, "Bits per color");
@@ -170,14 +169,47 @@ bool ParseImage(ExportParameters* param, ExporterInterface* exp)
 	}
 
 	//-------------------------------------------------------------------------
+	// FONT TABLE
+
+	/*if (param->bAddFont)
+	{
+		sprintf_s(strData, 256, "%s_font", param->tabName);
+		exp->WriteTableBegin(strData, "Font table");
+
+		exp->Write1ByteLine((u8)((8 << 4) + (param->sizeY & 0x0F)), "Data size [x|y]");
+		exp->Write1ByteLine((u8)(((param->fontX & 0x0F) << 4) + (param->fontY & 0x0F)), "Font size [x|y]");
+		sprintf_s(strData, 256, "First character ASCII code (%c)", param->fontFirst);
+		exp->Write1ByteLine((u8)param->fontFirst, strData);
+		sprintf_s(strData, 256, "Last character ASCII code (%c)", param->fontLast);
+		exp->Write1ByteLine((u8)param->fontLast, strData);
+
+		exp->WriteTableEnd("");
+	}*/
+
+	//-------------------------------------------------------------------------
 	// SPRITE TABLE
 
+	sprtAddr.resize(param->numX * param->numY);
 	exp->WriteTableBegin(param->tabName, "Data table");
+
+	if (param->bAddFont)
+	{
+		exp->WriteCommentLine("Font header data");
+		exp->Write1ByteLine((u8)((8 << 4) + (param->sizeY & 0x0F)), "Data size [x|y]");
+		exp->Write1ByteLine((u8)(((param->fontX & 0x0F) << 4) + (param->fontY & 0x0F)), "Font size [x|y]");
+		sprintf_s(strData, 256, "First character ASCII code (%c)", param->fontFirst);
+		exp->Write1ByteLine((u8)param->fontFirst, strData);
+		sprintf_s(strData, 256, "Last character ASCII code (%c)", param->fontLast);
+		exp->Write1ByteLine((u8)param->fontLast, strData);
+	}
+
 	// Parse source image
 	for(ny = 0; ny < param->numY; ny++)
 	{
 		for (nx = 0; nx < param->numX; nx++)
 		{
+			sprtAddr[nx + (ny * param->numX)] = (u16)exp->GetTotalBytes();
+
 			// Print sprite header
 			exp->WriteSpriteHeader(nx + (ny * param->numX));
 
@@ -202,7 +234,7 @@ bool ParseImage(ExportParameters* param, ExporterInterface* exp)
 				{
 					for (i = 0; i < param->sizeX; i++)
 					{
-						i32 pixel = param->posX + i + (nx * param->sizeX) + ((param->posY + j + (ny * param->sizeY)) * imageX);
+						i32 pixel = param->posX + i + (nx * (param->sizeX + param->gapX)) + ((param->posY + j + (ny * (param->sizeY + param->gapY))) * imageX);
 						u32 rgb = 0xFFFFFF & ((u32*)bits)[pixel];
 
 						if (param->comp == COMPRESS_RLE0) // Transparency color Run-length encoding
@@ -351,7 +383,7 @@ bool ParseImage(ExportParameters* param, ExporterInterface* exp)
 					{
 						for (i = 0; i < param->sizeX; i++)
 						{
-							i32 pixel = param->posX + i + (nx * param->sizeX) + ((param->posY + j + (ny * param->sizeY)) * imageX);
+							i32 pixel = param->posX + i + (nx * (param->sizeX + param->gapX)) + ((param->posY + j + (ny * (param->sizeY + param->gapY))) * imageX);
 							u32 rgb = 0xFFFFFF & ((u32*)bits)[pixel];
 							if (rgb != transRGB)
 							{
@@ -375,7 +407,10 @@ bool ParseImage(ExportParameters* param, ExporterInterface* exp)
 					if (count == 0)
 					{
 						if (param->bSkipEmpty)
+						{
+							sprtAddr[nx + (ny * param->numX)] = MSXi_NO_ENTRY;
 							continue;
+						}
 						else if (param->comp & COMPRESS_Crop_Mask)
 							minX = maxX = minY = maxY = 0;
 					}
@@ -437,7 +472,7 @@ bool ParseImage(ExportParameters* param, ExporterInterface* exp)
 							maxX = 0;
 							for (i = 0; i < param->sizeX; i++)
 							{
-								i32 pixel = param->posX + i + (nx * param->sizeX) + ((param->posY + j + (ny * param->sizeY)) * imageX);
+								i32 pixel = param->posX + i + (nx * (param->sizeX + param->gapX)) + ((param->posY + j + (ny * (param->sizeY + param->gapY))) * imageX);
 								u32 rgb = 0xFFFFFF & ((u32*)bits)[pixel];
 								if (rgb  != transRGB)
 								{
@@ -479,7 +514,7 @@ bool ParseImage(ExportParameters* param, ExporterInterface* exp)
 						{
 							if ((i >= minX) && (i <= maxX))
 							{
-								i32 pixel = param->posX + i + (nx * param->sizeX) + ((param->posY + j + (ny * param->sizeY)) * imageX);
+								i32 pixel = param->posX + i + (nx * (param->sizeX + param->gapX)) + ((param->posY + j + (ny * (param->sizeY + param->gapY))) * imageX);
 								u32 rgb = 0xFFFFFF & ((u32*)bits)[pixel];
 								if (param->bpc == 8) // 8-bits GBR color
 								{
@@ -536,6 +571,20 @@ bool ParseImage(ExportParameters* param, ExporterInterface* exp)
 	exp->WriteTableEnd(strData);
 
 	delete bits;
+
+	//-------------------------------------------------------------------------
+	// INDEX TABLE
+
+	if (param->bAddIndex)
+	{
+		sprintf_s(strData, 256, "%s_index", param->tabName);
+		exp->WriteTableBegin(strData, "Images index");
+		for (i32 i = 0; i < (i32)sprtAddr.size(); i++)
+		{
+			exp->Write1WordLine(sprtAddr[i], "");
+		}
+		exp->WriteTableEnd("");
+	}
 
 	//-------------------------------------------------------------------------
 	// PALETTE TABLE

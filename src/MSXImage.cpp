@@ -39,6 +39,7 @@ enum Format
 //const char* ARGV[] = { "", "-in", "test/cars.png", "-out", "test/sprt_car_1.h", "-pos", "0", "0", "-size", "13", "11", "-num", "16", "1", "-name", "g_Car1", "-trans", "0xE300E3", "-compress", "cropline32" };
 //const char* ARGV[] = { "", "-in", "test/track_tiles.png", "-out", "test/sprt_track.h", "-pos", "0", "0", "-size", "32", "32", "-num", "8", "4", "-name", "g_TrackTiles", "-trans", "0xDA48AA", "-bpc", "1", "-compress", "crop256", "-dither", "cluster8" };
 //const char* ARGV[] = { "", "-in", "test/test_sprt.png", "-out", "test/sprt_player.h", "-pos", "0", "0", "-size", "16", "16", "-num", "11", "8", "-name", "g_PlayerSprite", "-trans", "0x336600", "-bpc", "4", "-pal", "custom", "-compress", "best" };
+//const char* ARGV[] = { "", "-in", "test/cmsx_9.png", "-out", "test/cmsx_9.h", "-pos", "0", "0", "-size", "8", "12", "-gap", "0", "4", "-num", "16", "6", "-name", "cmsx_9", "-trans", "0x000000", "-bpc", "1", "-skip", "-font", "8", "8", "!", "_" };
 //#define DEBUG_ARGS
 
 //-----------------------------------------------------------------------------
@@ -47,7 +48,7 @@ enum Format
 
 void PrintHelp()
 {
-	printf("MSXImage (v%s)\n", VERSION);
+	printf("MSXImage (v%s)\n", MSXi_VERSION);
 	printf("Usage: MSXImage -in <filename> -out <filename> [options]\n");
 	printf("\n");
 	printf("Options:\n");
@@ -62,6 +63,7 @@ void PrintHelp()
 	printf("   -name name      Name of the table to generate\n");
 	printf("   -pos x y        Start position in the input image\n");
 	printf("   -size x y       Width/height of a block to export (if 0, use image size)\n");
+	printf("   -gap x y        Gap between blocks in pixels\n");
 	printf("   -num x y        Number of block to export (columns/rows number)\n");
 	printf("   -trans color    Transparency color (in RGB 24 bits format : 0xFFFFFF)\n");
 	printf("   -bpc ?	       Number of bits per color for the output image (support 1, 4 and 8-bits)\n");
@@ -88,12 +90,12 @@ void PrintHelp()
 	printf("   -dither ?       Dithering method (for 1-bit color only)\n");
 	printf("      none         No dithering (default)\n");
 	printf("      floyd        Floyd & Steinberg error diffusion algorithm\n");
-	printf("      bayer4       Bayer ordered dispersed dot dithering(order 2 – 4x4 - dithering matrix)\n");
-	printf("      bayer8       Bayer ordered dispersed dot dithering(order 3 – 8x8 - dithering matrix)\n");
-	printf("      bayer16      Bayer ordered dispersed dot dithering(order 4 – 16x16 dithering matrix)\n");
-	printf("      cluster6     Ordered clustered dot dithering(order 3 - 6x6 matrix)\n");
-	printf("      cluster8     Ordered clustered dot dithering(order 4 - 8x8 matrix)\n");
-	printf("      cluster16    Ordered clustered dot dithering(order 8 - 16x16 matrix)\n");
+	printf("      bayer4       Bayer ordered dispersed dot dithering (order 2 – 4x4 - dithering matrix)\n");
+	printf("      bayer8       Bayer ordered dispersed dot dithering (order 3 – 8x8 - dithering matrix)\n");
+	printf("      bayer16      Bayer ordered dispersed dot dithering (order 4 – 16x16 dithering matrix)\n");
+	printf("      cluster6     Ordered clustered dot dithering (order 3 - 6x6 matrix)\n");
+	printf("      cluster8     Ordered clustered dot dithering (order 4 - 8x8 matrix)\n");
+	printf("      cluster16    Ordered clustered dot dithering (order 8 - 16x16 matrix)\n");
 	printf("   -data ?         Text format for numbers\n");
 	printf("      dec          Decimal data (c & asm)\n");
 	printf("      hexa         Default hexadecimal data (depend on langage; default)\n");
@@ -103,7 +105,13 @@ void PrintHelp()
 	printf("      hexa#        Hexadecimal data (#FF; asm only)\n");
 	printf("      bin          Binary data (11001100b; asm only)\n");
 	printf("   -skip           Skip empty sprites (default: false)\n");
+	printf("   -idx            Add images index table (default: false)\n");
 	printf("   -head           Add a header table contening input parameters (default: false)\n");
+	printf("   -font x y f l   Add font header (default: false)\n");
+	printf("                   x/y: Font width/heigt in pixels\n");
+	printf("                   f/l: ASCII code of the first/last character to export\n");
+	printf("                   Direct character (like: &) or hexadecimal value (using 0xFF format)\n");
+	printf("   -def            Add defines for each table (default: false)\n");
 	printf("   -help           Display this help\n");
 }
 
@@ -170,6 +178,11 @@ int main(int argc, const char* argv[])
 			param.sizeX = atoi(argv[++i]);
 			param.sizeY = atoi(argv[++i]);
 		}
+		else if (_stricmp(argv[i], "-gap") == 0)
+		{
+			param.gapX = atoi(argv[++i]);
+			param.gapY = atoi(argv[++i]);
+		}		
 		else if(_stricmp(argv[i], "-num") == 0)
 		{
 			param.numX = atoi(argv[++i]);
@@ -270,9 +283,33 @@ int main(int argc, const char* argv[])
 		{
 			param.bSkipEmpty = true;
 		}
+		else if (_stricmp(argv[i], "-idx") == 0)
+		{
+			param.bAddIndex = true;
+		}
 		else if (_stricmp(argv[i], "-head") == 0)
 		{
 			param.bAddHeader = true;
+		}
+		else if (_stricmp(argv[i], "-font") == 0)
+		{
+			param.bAddFont = true;
+			param.fontX = atoi(argv[++i]);
+			param.fontY = atoi(argv[++i]);
+			i++;
+			if(strlen(argv[i]) > 1) // is hexadecimal? (in '0xFF' format)
+				param.fontFirst = (c8)strtol(argv[i], NULL, 16);
+			else
+				param.fontFirst = *argv[i];
+			i++;
+			if (strlen(argv[i]) > 1) // is hexadecimal? (in '0xFF' format)
+				param.fontLast = (c8)strtol(argv[i], NULL, 16);
+			else
+				param.fontLast = *argv[i];
+		}
+		else if (_stricmp(argv[i], "-def") == 0)
+		{
+			param.bDefine= true;
 		}
 	}
 
@@ -318,7 +355,7 @@ int main(int argc, const char* argv[])
 	if (bBestCompress)
 	{
 		printf("Start benchmark to find the best compressor\n");
-		static const Compressor compTable[] =
+		static const MSXi_Compressor compTable[] =
 		{
 			COMPRESS_None,
 			COMPRESS_Crop16,
@@ -333,7 +370,7 @@ int main(int argc, const char* argv[])
 		};
 
 		u32 bestSize = 0;
-		Compressor bestComp = COMPRESS_None;
+		MSXi_Compressor bestComp = COMPRESS_None;
 
 		for (i32 i = 0; i < numberof(compTable); i++)
 		{

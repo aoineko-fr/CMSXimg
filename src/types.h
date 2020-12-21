@@ -10,8 +10,6 @@
 
 #pragma once
 
-#define VERSION "1.7.1"
-
 //-----------------------------------------------------------------------------
 // integer types
 typedef char               i8;  ///<  8 bits integer

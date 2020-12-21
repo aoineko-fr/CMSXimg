@@ -10,7 +10,7 @@
 
 #include "exporter.h"
 
-const char* GetCompressorName(Compressor comp, bool bShort)
+const char* GetCompressorName(MSXi_Compressor comp, bool bShort)
 {
 	switch (comp)
 	{
@@ -28,7 +28,7 @@ const char* GetCompressorName(Compressor comp, bool bShort)
 	return "Unknow";
 }
 
-bool IsCompressorCompatible(Compressor comp, const ExportParameters& param)
+bool IsCompressorCompatible(MSXi_Compressor comp, const ExportParameters& param)
 {
 	if (comp == COMPRESS_None)
 		return true;
