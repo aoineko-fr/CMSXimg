@@ -4,7 +4,7 @@
 //   /  \ /  \ \_____  \  \     / |  |
 //  /    Y    \/        \ /     \ |  |
 //  \____|__  /_______  //___/\  \|__| 
-//          \/        \/       \_/     v1.7.4
+//          \/        \/       \_/     v1.7.5
 //
 // by Guillaume "Aoineko" Blanchard (aoineko@free.fr)
 // available on GitHub (https://github.com/aoineko-fr/MSXImage)
@@ -12,7 +12,7 @@
 //-----------------------------------------------------------------------------
 #pragma once
 
-#define MSXi_VERSION "1.7.4"
+#define MSXi_VERSION "1.7.5"
 
 /// Compression mode
 enum MSXi_Compressor

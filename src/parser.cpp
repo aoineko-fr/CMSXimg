@@ -157,7 +157,7 @@ bool ParseImage(ExportParameters* param, ExporterInterface* exp)
 	if (param->bAddHeader)
 	{
 		sprintf_s(strData, 256, "%s_header", param->tabName);
-		exp->WriteTableBegin(strData, "Header table");
+		exp->WriteTableBegin(TABLE_Header, strData, "Header table");
 
 		exp->Write2WordsLine((u16)param->sizeX, (u16)param->sizeY, "Sprite size (X Y)");
 		exp->Write2WordsLine((u16)param->numX, (u16)param->numY, "Sprite count (X Y)");
@@ -174,7 +174,7 @@ bool ParseImage(ExportParameters* param, ExporterInterface* exp)
 	/*if (param->bAddFont)
 	{
 		sprintf_s(strData, 256, "%s_font", param->tabName);
-		exp->WriteTableBegin(strData, "Font table");
+		exp->WriteTableBegin(TABLE_U8, strData, "Font table");
 
 		exp->Write1ByteLine((u8)((8 << 4) + (param->sizeY & 0x0F)), "Data size [x|y]");
 		exp->Write1ByteLine((u8)(((param->fontX & 0x0F) << 4) + (param->fontY & 0x0F)), "Font size [x|y]");
@@ -190,7 +190,7 @@ bool ParseImage(ExportParameters* param, ExporterInterface* exp)
 	// SPRITE TABLE
 
 	sprtAddr.resize(param->numX * param->numY);
-	exp->WriteTableBegin(param->tabName, "Data table");
+	exp->WriteTableBegin(TABLE_U8, param->tabName, "Data table");
 
 	if (param->bAddFont)
 	{
@@ -418,6 +418,12 @@ bool ParseImage(ExportParameters* param, ExporterInterface* exp)
 					// Sprite header
 					if ((param->comp & COMPRESS_Crop_Mask))
 					{
+						if (param->bpc == 4) // 4-bits index color palette
+						{
+							minX &= 0xFE; // round 2
+							maxX |= 0x01; // round 2
+						}
+
 						if (param->comp == COMPRESS_Crop16)
 						{
 							minX &= 0x0F; // Clamp to 4bits (0-15)
@@ -485,6 +491,7 @@ bool ParseImage(ExportParameters* param, ExporterInterface* exp)
 							if (param->bpc == 4) // 4-bits index color palette
 							{
 								minX &= 0xFE; // round 2
+								maxX |= 0x01; // round 2
 							}
 
 							// Add row range info
@@ -578,7 +585,7 @@ bool ParseImage(ExportParameters* param, ExporterInterface* exp)
 	if (param->bAddIndex)
 	{
 		sprintf_s(strData, 256, "%s_index", param->tabName);
-		exp->WriteTableBegin(strData, "Images index");
+		exp->WriteTableBegin(TABLE_U16, strData, "Images index");
 		for (i32 i = 0; i < (i32)sprtAddr.size(); i++)
 		{
 			exp->Write1WordLine(sprtAddr[i], "");
@@ -592,7 +599,7 @@ bool ParseImage(ExportParameters* param, ExporterInterface* exp)
 	if ((param->bpc == 4) && (param->palType == PALETTE_Custom))
 	{
 		sprintf_s(strData, 256, "%s_palette", param->tabName);
-		exp->WriteTableBegin(strData, "Custom palette | Format: [X|R:3|X|B:3] [X:5|G:3]");
+		exp->WriteTableBegin(TABLE_U8, strData, "Custom palette | Format: [X|R:3|X|B:3] [X:5|G:3]");
 		for (i32 i = 1; i <= param->palCount; i++)
 		{
 			RGB24 color(customPalette[i]);

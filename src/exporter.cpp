@@ -28,6 +28,18 @@ const char* GetCompressorName(MSXi_Compressor comp, bool bShort)
 	return "Unknow";
 }
 
+std::string GetTableCText(TableFormat format, std::string name)
+{
+	switch (format)
+	{
+	case TABLE_U8: return "const unsigned char " + name + "[]";
+	case TABLE_U16: return "const unsigned short " + name + "[]";
+	case TABLE_U32: return "const unsigned long " + name + "[]";
+	case TABLE_Header: return "const struct MSXi_Header " + name;
+	}
+	return "Unknow";
+}
+
 bool IsCompressorCompatible(MSXi_Compressor comp, const ExportParameters& param)
 {
 	if (comp == COMPRESS_None)

@@ -31,6 +31,14 @@ enum DataFormat
 	DATA_Binary,
 };
 
+/// Format of the data
+enum TableFormat
+{
+	TABLE_U8,
+	TABLE_U16,
+	TABLE_U32,
+	TABLE_Header,
+};
 
 struct ExportParameters
 {
@@ -99,6 +107,9 @@ struct ExportParameters
 // Get the short/long name of a given compressor
 const char* GetCompressorName(MSXi_Compressor comp, bool bShort = false);
 
+// Get table format C text
+std::string GetTableCText(TableFormat format, std::string name);
+
 // Check if a compressor if compatible with given import parameters
 bool IsCompressorCompatible(MSXi_Compressor comp, const ExportParameters& param);
 
@@ -115,7 +126,7 @@ protected:
 public:
 	ExporterInterface(DataFormat f, ExportParameters* p): eFormat(f), Param(p), TotalBytes(0) {}
 	virtual void WriteHeader() = 0;
-	virtual void WriteTableBegin(std::string name, std::string comment) = 0;
+	virtual void WriteTableBegin(TableFormat format, std::string name, std::string comment) = 0;
 	virtual void WriteSpriteHeader(i32 number) = 0;
 	virtual void WriteCommentLine(std::string comment) = 0;
 	virtual void Write1ByteLine(u8 a, std::string comment) = 0;
@@ -149,7 +160,7 @@ protected:
 public:
 	ExporterText(DataFormat f, ExportParameters* p) : ExporterInterface(f, p) {}
 	virtual void WriteHeader() = 0;
-	virtual void WriteTableBegin(std::string name, std::string comment) = 0;
+	virtual void WriteTableBegin(TableFormat format, std::string name, std::string comment) = 0;
 	virtual void WriteSpriteHeader(i32 number) = 0;
 	virtual void WriteCommentLine(std::string comment) = 0;
 	virtual void Write1ByteLine(u8 a, std::string comment) = 0;
@@ -222,7 +233,7 @@ public:
 		outData += strData;
 	}
 
-	virtual void WriteTableBegin(std::string name, std::string comment)
+	virtual void WriteTableBegin(TableFormat format, std::string name, std::string comment)
 	{
 		if (Param->bDefine)
 		{
@@ -232,18 +243,18 @@ public:
 				"\t#define D_%s\n"
 				"#endif\n"
 				"// %s\n"
-				"D_%s const unsigned char %s[] =\n"
+				"D_%s %s =\n"
 				"{\n",
-				name.c_str(), name.c_str(), comment.c_str(), name.c_str(), name.c_str());
+				name.c_str(), name.c_str(), comment.c_str(), name.c_str(), GetTableCText(format, name).c_str());
 		}
 		else
 		{
 			sprintf_s(strData, BUFFER_SIZE,
 				"\n"
 				"// %s\n"
-				"const unsigned char %s[] =\n"
+				"%s =\n"
 				"{\n",
-				comment.c_str(), name.c_str());
+				comment.c_str(), GetTableCText(format, name).c_str());
 		}
 		outData += strData;
 	}
@@ -398,7 +409,7 @@ public:
 		outData += strData;
 	}
 
-	virtual void WriteTableBegin(std::string name, std::string comment)
+	virtual void WriteTableBegin(TableFormat format, std::string name, std::string comment)
 	{
 		sprintf_s(strData, BUFFER_SIZE,
 			"\n"
@@ -515,7 +526,7 @@ protected:
 public:
 	ExporterBin(DataFormat f, ExportParameters* p) : ExporterInterface(f, p) {}
 	virtual void WriteHeader() {}
-	virtual void WriteTableBegin(std::string name, std::string comment) {}
+	virtual void WriteTableBegin(TableFormat format, std::string name, std::string comment) {}
 	virtual void WriteSpriteHeader(i32 number) {}
 	virtual void WriteCommentLine(std::string comment) {}
 	virtual void Write1ByteLine(u8 a, std::string comment)
@@ -591,7 +602,7 @@ class ExporterDummy : public ExporterInterface
 public:
 	ExporterDummy(DataFormat f, ExportParameters* p) : ExporterInterface(f, p) {}
 	virtual void WriteHeader() {}
-	virtual void WriteTableBegin(std::string name, std::string comment) {}
+	virtual void WriteTableBegin(TableFormat format, std::string name, std::string comment) {}
 	virtual void WriteSpriteHeader(i32 number) {}
 	virtual void WriteCommentLine(std::string comment) {}
 	virtual void Write1ByteLine(u8 a, std::string comment) { TotalBytes += 1; }
