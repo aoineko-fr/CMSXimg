@@ -12,7 +12,7 @@
 //-----------------------------------------------------------------------------
 #pragma once
 
-#define MSXi_VERSION "1.7.5"
+#define MSXi_VERSION "1.7.6"
 
 /// Compression mode
 enum MSXi_Compressor

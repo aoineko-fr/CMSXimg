@@ -68,6 +68,7 @@ void PrintHelp()
 	printf("   -trans color    Transparency color (in RGB 24 bits format : 0xFFFFFF)\n");
 	printf("   -bpc ?	       Number of bits per color for the output image (support 1, 4 and 8-bits)\n");
 	printf("      1	           1-bit black & white (0: tranparency or black, 1: other colors)\n");
+	printf("      2	           2-bit index in 4 colors palette\n");
 	printf("      4	           4-bits index in 16 colors palette\n");
 	printf("      8	           8 bits RGB 256 colors (format: [G:3|R:3|B2]; default)\n");
 	printf("   -pal            Palette to use for 16 colors mode\n");
@@ -314,6 +315,15 @@ int main(int argc, const char* argv[])
 	}
 
 	//-------------------------------------------------------------------------
+	if (param.palCount == -1) // set default palette count
+	{
+		if (param.bpc == 2)
+			param.palCount = 3;
+		else if (param.bpc == 4)
+			param.palCount = 15;
+	}
+
+	//-------------------------------------------------------------------------
 	// Determine a valid compression method according to input parameters
 	if (bAutoCompress)
 	{
@@ -322,7 +332,7 @@ int main(int argc, const char* argv[])
 		{
 			if (param.bUseTrans)
 			{
-				if (param.bpc == 1)
+				if ((param.bpc == 1) || (param.bpc == 2))
 				{
 					if ((param.sizeX <= 16) && (param.sizeY <= 16))
 						param.comp = COMPRESS_Crop16;
@@ -417,9 +427,9 @@ int main(int argc, const char* argv[])
 		printf("Error: Output file required!\n");
 		return 1;
 	}
-	if ((param.bpc != 1) && (param.bpc != 4) && (param.bpc != 8))
+	if ((param.bpc != 1) && (param.bpc != 2) && (param.bpc != 4) && (param.bpc != 8))
 	{
-		printf("Error: Invalid bits-per-color value (%i). Only 1, 4 or 8-bits colors are supported!\n", param.bpc);
+		printf("Error: Invalid bits-per-color value (%i). Only 1, 2, 4 or 8-bits colors are supported!\n", param.bpc);
 		return 1;
 	}
 	if ((param.sizeX == 0) || (param.sizeY == 0))
@@ -436,7 +446,7 @@ int main(int argc, const char* argv[])
 		printf("Warning: RLE0 compressor can't be use without transparency color. RLE0 compressor removed.\n");
 		param.comp = COMPRESS_None;
 	}
-	if ((param.bpc == 1) && (param.comp & COMPRESS_RLE_Mask))
+	if (((param.bpc == 1) || (param.bpc == 2)) && (param.comp & COMPRESS_RLE_Mask))
 	{
 		printf("Warning: RLE compressor can be use only with 4 and 8-bits color format. RLE compressor removed.\n");
 		param.comp = COMPRESS_None;
@@ -450,9 +460,14 @@ int main(int argc, const char* argv[])
 	{
 		printf("Warning: -skip as no effect without transparency color.\n");
 	}
-	if (param.palCount > 15)
+	if ((param.bpc == 2) && (param.palCount > 3))
 	{
-		printf("Warning: -palcount is %i but can't be more than 15 (color index 0 is always transparent). Continue with 15 as value.\n", param.palCount);
+		printf("Warning: -palcount is %i but can't be more than 3 with 2-bits color (color index 0 is always transparent). Continue with 3 as value.\n", param.palCount);
+		param.palCount = 3;
+	}
+	if ((param.bpc == 4) && (param.palCount > 15))
+	{
+		printf("Warning: -palcount is %i but can't be more than 15 with 4-bits color (color index 0 is always transparent). Continue with 15 as value.\n", param.palCount);
 		param.palCount = 15;
 	}
 	if ((param.dither != DITHER_None) && (param.bpc != 1))

@@ -88,7 +88,7 @@ struct ExportParameters
 		bUseTrans = false;
 		transColor = 0;
 		palType = PALETTE_MSX1;
-		palCount = 15;
+		palCount = -1;
 		comp = COMPRESS_None;
 		dataType = DATA_Hexa;
 		bSkipEmpty = false;

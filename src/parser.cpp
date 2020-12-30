@@ -60,15 +60,18 @@ u8 GetNearestColorIndex(u32 color, u32* pal, i32 count)
 }
 
 /***/
-u8 GetGBR8(u32 color, u32 transRGB)
+u8 GetGBR8(u32 color, bool bUseTrans, u32 transRGB)
 {
-	u8 c8;
+	RGB24 c24 = RGB24(color);
+	u8 c8 = GRB8(c24);
 
-	if (color != transRGB)
+	if (bUseTrans)
 	{
-		RGB24 c24 = RGB24(color);
-		c8 = GRB8(c24);
-		if (c8 == 0)
+		if (color == transRGB) // force color 0 for transparent pixel
+		{
+			c8 = 0;
+		}
+		else if (c8 == 0) // prevent color 0 for non-transparent pixel
 		{
 			if (c24.G > c24.R)
 				c8 = 0x20;
@@ -76,19 +79,17 @@ u8 GetGBR8(u32 color, u32 transRGB)
 				c8 = 0x04;
 		}
 	}
-	else
-		c8 = 0;
 	return c8;
 }
 
 /***/
 bool ParseImage(ExportParameters* param, ExporterInterface* exp)
 {
-	FIBITMAP *dib, *dib32, *dib4, *dib1;
+	FIBITMAP *dib, *dib32;
 	i32 i, j, nx, ny, bit, minX, maxX, minY, maxY;
 	RGB24 c24;
 	GRB8 c8;
-	u8 c4, byte = 0;
+	u8 c2, c4, byte = 0;
 	char strData[256];
 	u32 transRGB = 0x00FFFFFF & param->transColor;
 	u32 headAddr = 0, palAddr = 0;
@@ -113,6 +114,11 @@ bool ParseImage(ExportParameters* param, ExporterInterface* exp)
 
 	// Get custom palette for 16 colors mode
 	u32 customPalette[16];
+	RGBQUAD defaultPal[3] = {
+		{ 0x00, 0x00, 0x00, 0 },
+		{ 0x80, 0x80, 0x80, 0 },
+		{ 0xFF, 0xFF, 0xFF, 0 },
+	};
 	if ((param->bpc == 4) && (param->palType == PALETTE_Custom))
 	{
 		if (param->bUseTrans)
@@ -120,19 +126,35 @@ bool ParseImage(ExportParameters* param, ExporterInterface* exp)
 			u32 black = 0;
 			i32 res = FreeImage_ApplyColorMapping(dib32, (RGBQUAD*)&transRGB, (RGBQUAD*)&black, 1, true, false); // @warning: must be call AFTER retreving raw data!
 		}
-		dib4 = FreeImage_ColorQuantizeEx(dib32, FIQ_LFPQUANT, param->palCount, 0, NULL); // Try Lossless Fast Pseudo-Quantization algorithm (if there are 15 colors or less)
+		FIBITMAP* dib4 = FreeImage_ColorQuantizeEx(dib32, FIQ_LFPQUANT, param->palCount, 3, defaultPal); // Try Lossless Fast Pseudo-Quantization algorithm (if there are 15 colors or less)
 		if(dib4 == NULL)
-			dib4 = FreeImage_ColorQuantizeEx(dib32, FIQ_WUQUANT, param->palCount, 0, NULL); // Else, use Efficient Statistical Computations for Optimal Color Quantization
+			dib4 = FreeImage_ColorQuantizeEx(dib32, FIQ_WUQUANT, param->palCount, 3, defaultPal); // Else, use Efficient Statistical Computations for Optimal Color Quantization
 		RGBQUAD* pal = FreeImage_GetPalette(dib4);
 		customPalette[0] = 0;
 		for (i32 c = 0; c < param->palCount; c++)
 			customPalette[c + 1] = ((u32*)pal)[c];
 		FreeImage_Unload(dib4);
 	}
+	else if ((param->bpc == 2) && (param->palType == PALETTE_Custom))
+	{
+		if (param->bUseTrans)
+		{
+			u32 black = 0;
+			i32 res = FreeImage_ApplyColorMapping(dib32, (RGBQUAD*)&transRGB, (RGBQUAD*)&black, 1, true, false); // @warning: must be call AFTER retreving raw data!
+		}
+		FIBITMAP* dib2 = FreeImage_ColorQuantizeEx(dib32, FIQ_LFPQUANT, param->palCount, 3, defaultPal); // Try Lossless Fast Pseudo-Quantization algorithm (if there are 3 colors or less)
+		if (dib2 == NULL)
+			dib2 = FreeImage_ColorQuantizeEx(dib32, FIQ_WUQUANT, param->palCount, 3, defaultPal); // Else, use Efficient Statistical Computations for Optimal Color Quantization
+		RGBQUAD* pal = FreeImage_GetPalette(dib2);
+		customPalette[0] = 0;
+		for (i32 c = 0; c < param->palCount; c++)
+			customPalette[c + 1] = ((u32*)pal)[c];
+		FreeImage_Unload(dib2);
+	}
 	// Apply dithering for 2 color mode
 	else if ((param->bpc == 1) && (param->dither != DITHER_None))
 	{
-		dib1 = FreeImage_Dither(dib32, (FREE_IMAGE_DITHER)param->dither);
+		FIBITMAP* dib1 = FreeImage_Dither(dib32, (FREE_IMAGE_DITHER)param->dither);
 		FreeImage_ConvertToRawBits(bits, dib1, scanWidth, 32, FI_RGBA_RED_MASK, FI_RGBA_GREEN_MASK, FI_RGBA_BLUE_MASK, TRUE);
 		FreeImage_Unload(dib1);
 	}
@@ -313,7 +335,7 @@ bool ParseImage(ExportParameters* param, ExporterInterface* exp)
 							{
 								for (u32 l = 0; l < hashTable[k].data.size(); l++)
 								{
-									c8 = GetGBR8(hashTable[k].data[l], transRGB);
+									c8 = GetGBR8(hashTable[k].data[l], param->bUseTrans, transRGB);
 									exp->Write1ByteData(c8);
 								}
 							}
@@ -349,7 +371,7 @@ bool ParseImage(ExportParameters* param, ExporterInterface* exp)
 						else if (param->bpc == 8) // 8-bits GBR color
 						{
 							exp->Write1ByteData((u8)hashTable[k].length);
-							c8 = GetGBR8(hashTable[k].color, transRGB);
+							c8 = GetGBR8(hashTable[k].color, param->bUseTrans, transRGB);
 							exp->Write1ByteData(c8);
 						}
 					}
@@ -418,7 +440,12 @@ bool ParseImage(ExportParameters* param, ExporterInterface* exp)
 					// Sprite header
 					if ((param->comp & COMPRESS_Crop_Mask))
 					{
-						if (param->bpc == 4) // 4-bits index color palette
+						if (param->bpc == 2) // 2-bits index color palette
+						{
+							minX &= 0xFC; // round 4
+							maxX |= 0x03; // round 4
+						}
+						else if (param->bpc == 4) // 4-bits index color palette
 						{
 							minX &= 0xFE; // round 2
 							maxX |= 0x01; // round 2
@@ -488,7 +515,12 @@ bool ParseImage(ExportParameters* param, ExporterInterface* exp)
 										maxX = i;
 								}
 							}
-							if (param->bpc == 4) // 4-bits index color palette
+							if (param->bpc == 2) // 2-bits index color palette
+							{
+								minX &= 0xFC; // round 4
+								maxX |= 0x03; // round 4
+							}
+							else if (param->bpc == 4) // 4-bits index color palette
 							{
 								minX &= 0xFE; // round 2
 								maxX |= 0x01; // round 2
@@ -523,12 +555,14 @@ bool ParseImage(ExportParameters* param, ExporterInterface* exp)
 							{
 								i32 pixel = param->posX + i + (nx * (param->sizeX + param->gapX)) + ((param->posY + j + (ny * (param->sizeY + param->gapY))) * imageX);
 								u32 rgb = 0xFFFFFF & ((u32*)bits)[pixel];
+								//-----------------------------------------------------------------
 								if (param->bpc == 8) // 8-bits GBR color
 								{
 									// convert to 8 bits GRB
-									c8 = GetGBR8(rgb, transRGB);
+									c8 = GetGBR8(rgb, param->bUseTrans, transRGB);
 									exp->Write1ByteData((u8)c8);
 								}
+								//-----------------------------------------------------------------
 								else if (param->bpc == 4) // 4-bits index color palette
 								{
 									u32* pal = (param->palType == PALETTE_MSX1) ? PaletteMSX : customPalette;
@@ -536,17 +570,44 @@ bool ParseImage(ExportParameters* param, ExporterInterface* exp)
 										c4 = (rgb == transRGB) ? 0x0 : GetNearestColorIndex(rgb, pal, param->palCount);
 									else
 										c4 = GetNearestColorIndex(rgb, pal, param->palCount);
+									c4 &= 0x0F;
 
-									if (i & 0x1)
-										byte |= c4; // Second pixel use lower bits
-									else
+									if ((i & 0x1) == 0)
 										byte |= (c4 << 4); // First pixel use higher bits
-									if ((i & 0x1) || (i == maxX))
+									else // ((i & 0x1) == 1)
+										byte |= c4; // Second pixel use lower bits
+									if (((i & 0x1) == 1) || (i == maxX))
 									{
 										exp->Write1ByteData(byte);
 										byte = 0;
 									}
 								}
+								//-----------------------------------------------------------------
+								else if (param->bpc == 2) // 2-bits index color palette
+								{
+									u32* pal = (param->palType == PALETTE_MSX1) ? PaletteMSX : customPalette;
+									if (param->bUseTrans)
+										c2 = (rgb == transRGB) ? 0x0 : GetNearestColorIndex(rgb, pal, param->palCount);
+									else
+										c2 = GetNearestColorIndex(rgb, pal, param->palCount);
+									c2 &= 0x03;
+
+									if ((i & 0x3) == 0)
+										byte |= (c2 << 6); // First pixel
+									else if ((i & 0x3) == 1)
+										byte |= (c2 << 4); // Second pixel
+									else if ((i & 0x3) == 2)
+										byte |= (c2 << 2); // Third  pixel
+									else // ((i & 0x3) == 3)
+										byte |= c2; // Fourth pixel
+
+									if (((i & 0x3) == 3) || (i == maxX))
+									{
+										exp->Write1ByteData(byte);
+										byte = 0;
+									}
+								}
+								//-----------------------------------------------------------------
 								else if (param->bpc == 1) // Black & white
 								{
 									bit = pixel & 0x7;
@@ -596,7 +657,7 @@ bool ParseImage(ExportParameters* param, ExporterInterface* exp)
 	//-------------------------------------------------------------------------
 	// PALETTE TABLE
 
-	if ((param->bpc == 4) && (param->palType == PALETTE_Custom))
+	if (((param->bpc == 2) || (param->bpc == 4)) && (param->palType == PALETTE_Custom))
 	{
 		sprintf_s(strData, 256, "%s_palette", param->tabName);
 		exp->WriteTableBegin(TABLE_U8, strData, "Custom palette | Format: [X|R:3|X|B:3] [X:5|G:3]");
