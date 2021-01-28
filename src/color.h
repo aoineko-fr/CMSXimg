@@ -1,19 +1,19 @@
-//     _____    _____________  ___ .___                               
-//    /     \  /   _____/\   \/  / |   | _____ _____     ____   ____  
-//   /  \ /  \ \_____  \  \     /  |   |/     \\__  \   / ___\_/ __ \ 
-//  /    Y    \/        \ /     \  |   |  Y Y  \/ __ \_/ /_/  >  ___/ 
-//  \____|__  /_______  //___/\  \ |___|__|_|  (____  /\___  / \___  >
-//          \/        \/       \_/           \/     \//_____/      \/ 
+﻿//_____________________________________________________________________________
+//   ▄▄   ▄ ▄  ▄▄▄ ▄▄ ▄ ▄                                                      
+//  ██ ▀ ██▀█ ▀█▄  ▀█▄▀ ▄  ▄█▄█ ▄▀██                                           
+//  ▀█▄▀ ██ █ ▄▄█▀ ██ █ ██ ██ █  ▀██                                           
+//_______________________________▀▀____________________________________________
 //
 // by Guillaume "Aoineko" Blanchard (aoineko@free.fr)
+// available on GitHub (https://github.com/aoineko-fr/CMSXimg)
 // under CC-BY-AS license (https://creativecommons.org/licenses/by-sa/2.0/)
 
 #pragma once
 
 // FreeImage
 #include "FreeImage.h"
-// MSXImage
-#include "types.h"
+// CMSXtk
+#include "CMSXtk.h"
 
 extern u32 PaletteMSX[16];
 
@@ -29,9 +29,9 @@ enum DitheringMethod
 {
 	DITHER_None      = -1,
 	DITHER_Floyd     = FID_FS,     // Floyd & Steinberg error diffusion algorithm
-	DITHER_Bayer4    = FID_BAYER4x4,    // Bayer ordered dispersed dot dithering(order 2 � 4x4 - dithering matrix)
-	DITHER_Bayer8    = FID_BAYER8x8,    // Bayer ordered dispersed dot dithering(order 3 � 8x8 - dithering matrix)
-	DITHER_Bayer16   = FID_BAYER16x16,   // Bayer ordered dispersed dot dithering(order 4 � 16x16 dithering matrix)
+	DITHER_Bayer4    = FID_BAYER4x4,    // Bayer ordered dispersed dot dithering(order 2 – 4x4 - dithering matrix)
+	DITHER_Bayer8    = FID_BAYER8x8,    // Bayer ordered dispersed dot dithering(order 3 – 8x8 - dithering matrix)
+	DITHER_Bayer16   = FID_BAYER16x16,   // Bayer ordered dispersed dot dithering(order 4 – 16x16 dithering matrix)
 	DITHER_Cluster6  = FID_CLUSTER6x6,  // Ordered clustered dot dithering(order 3 - 6x6 matrix)
 	DITHER_Cluster8  = FID_CLUSTER8x8,  // Ordered clustered dot dithering(order 4 - 8x8 matrix)
 	DITHER_Cluster16 = FID_CLUSTER16x16, // Ordered clustered dot dithering(order 8 - 16x16 matrix)

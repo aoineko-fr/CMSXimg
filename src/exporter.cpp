@@ -1,16 +1,17 @@
-//     _____    _____________  ___ .___                               
-//    /     \  /   _____/\   \/  / |   | _____ _____     ____   ____  
-//   /  \ /  \ \_____  \  \     /  |   |/     \\__  \   / ___\_/ __ \ 
-//  /    Y    \/        \ /     \  |   |  Y Y  \/ __ \_/ /_/  >  ___/ 
-//  \____|__  /_______  //___/\  \ |___|__|_|  (____  /\___  / \___  >
-//          \/        \/       \_/           \/     \//_____/      \/ 
+﻿//_____________________________________________________________________________
+//   ▄▄   ▄ ▄  ▄▄▄ ▄▄ ▄ ▄                                                      
+//  ██ ▀ ██▀█ ▀█▄  ▀█▄▀ ▄  ▄█▄█ ▄▀██                                           
+//  ▀█▄▀ ██ █ ▄▄█▀ ██ █ ██ ██ █  ▀██                                           
+//_______________________________▀▀____________________________________________
 //
 // by Guillaume "Aoineko" Blanchard (aoineko@free.fr)
+// available on GitHub (https://github.com/aoineko-fr/CMSXimg)
 // under CC-BY-AS license (https://creativecommons.org/licenses/by-sa/2.0/)
 
+// CMSXi
 #include "exporter.h"
 
-const char* GetCompressorName(MSXi_Compressor comp, bool bShort)
+const char* GetCompressorName(CMSXi_Compressor comp, bool bShort)
 {
 	switch (comp)
 	{
@@ -35,12 +36,12 @@ std::string GetTableCText(TableFormat format, std::string name)
 	case TABLE_U8: return "const unsigned char " + name + "[]";
 	case TABLE_U16: return "const unsigned short " + name + "[]";
 	case TABLE_U32: return "const unsigned long " + name + "[]";
-	case TABLE_Header: return "const struct MSXi_Header " + name;
+	case TABLE_Header: return "const struct CMSXi_Header " + name;
 	}
 	return "Unknow";
 }
 
-bool IsCompressorCompatible(MSXi_Compressor comp, const ExportParameters& param)
+bool IsCompressorCompatible(CMSXi_Compressor comp, const ExportParameters& param)
 {
 	if (comp == COMPRESS_None)
 		return true;
@@ -57,8 +58,6 @@ bool IsCompressorCompatible(MSXi_Compressor comp, const ExportParameters& param)
 		return false;
 	if (((comp == COMPRESS_Crop256) || (comp == COMPRESS_CropLine256)) && ((param.sizeX > 256) || (param.sizeY > 256)))
 		return false;
-
-
 
 	return true;
 }

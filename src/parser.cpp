@@ -1,11 +1,11 @@
-//     _____    _____________  ___ .___                               
-//    /     \  /   _____/\   \/  / |   | _____ _____     ____   ____  
-//   /  \ /  \ \_____  \  \     /  |   |/     \\__  \   / ___\_/ __ \ 
-//  /    Y    \/        \ /     \  |   |  Y Y  \/ __ \_/ /_/  >  ___/ 
-//  \____|__  /_______  //___/\  \ |___|__|_|  (____  /\___  / \___  >
-//          \/        \/       \_/           \/     \//_____/      \/ 
+﻿//_____________________________________________________________________________
+//   ▄▄   ▄ ▄  ▄▄▄ ▄▄ ▄ ▄                                                      
+//  ██ ▀ ██▀█ ▀█▄  ▀█▄▀ ▄  ▄█▄█ ▄▀██                                           
+//  ▀█▄▀ ██ █ ▄▄█▀ ██ █ ██ ██ █  ▀██                                           
+//_______________________________▀▀____________________________________________
 //
 // by Guillaume "Aoineko" Blanchard (aoineko@free.fr)
+// available on GitHub (https://github.com/aoineko-fr/CMSXimg)
 // under CC-BY-AS license (https://creativecommons.org/licenses/by-sa/2.0/)
 
 // std
@@ -17,7 +17,7 @@
 #include <vector>
 // FreeImage
 #include "FreeImage.h"
-// MSXImage
+// CMSXie
 #include "color.h"
 #include "exporter.h"
 #include "image.h"
@@ -90,15 +90,15 @@ bool ParseImage(ExportParameters* param, ExporterInterface* exp)
 	RGB24 c24;
 	GRB8 c8;
 	u8 c2, c4, byte = 0;
-	char strData[256];
+	char strData[BUFFER_SIZE];
 	u32 transRGB = 0x00FFFFFF & param->transColor;
 	u32 headAddr = 0, palAddr = 0;
 	std::vector<u16> sprtAddr;
 
-	dib = LoadImage(param->inFile); // open and load the file using the default load option
+	dib = LoadImage(param->inFile.c_str()); // open and load the file using the default load option
 	if (dib == NULL)
 	{
-		printf("Error: Fail to load %s\n", param->inFile);
+		printf("Error: Fail to load %s\n", param->inFile.c_str());
 		return false;
 	}
 
@@ -170,15 +170,17 @@ bool ParseImage(ExportParameters* param, ExporterInterface* exp)
 		param->numX = param->numY = 1;
 	}
 
-	// Build header file
+	//-------------------------------------------------------------------------
+	// File header
+	
 	exp->WriteHeader();
 
 	//-------------------------------------------------------------------------
-	// HEADER TABLE
+	// Header table
 
 	if (param->bAddHeader)
 	{
-		sprintf_s(strData, 256, "%s_header", param->tabName);
+		sprintf_s(strData, BUFFER_SIZE, "%s_header", param->tabName.c_str());
 		exp->WriteTableBegin(TABLE_Header, strData, "Header table");
 
 		exp->Write2WordsLine((u16)param->sizeX, (u16)param->sizeY, "Sprite size (X Y)");
@@ -191,37 +193,22 @@ bool ParseImage(ExportParameters* param, ExporterInterface* exp)
 	}
 
 	//-------------------------------------------------------------------------
-	// FONT TABLE
-
-	/*if (param->bAddFont)
-	{
-		sprintf_s(strData, 256, "%s_font", param->tabName);
-		exp->WriteTableBegin(TABLE_U8, strData, "Font table");
-
-		exp->Write1ByteLine((u8)((8 << 4) + (param->sizeY & 0x0F)), "Data size [x|y]");
-		exp->Write1ByteLine((u8)(((param->fontX & 0x0F) << 4) + (param->fontY & 0x0F)), "Font size [x|y]");
-		sprintf_s(strData, 256, "First character ASCII code (%c)", param->fontFirst);
-		exp->Write1ByteLine((u8)param->fontFirst, strData);
-		sprintf_s(strData, 256, "Last character ASCII code (%c)", param->fontLast);
-		exp->Write1ByteLine((u8)param->fontLast, strData);
-
-		exp->WriteTableEnd("");
-	}*/
-
-	//-------------------------------------------------------------------------
-	// SPRITE TABLE
+	// Sprite table
 
 	sprtAddr.resize(param->numX * param->numY);
 	exp->WriteTableBegin(TABLE_U8, param->tabName, "Data table");
+
+	//-------------------------------------------------------------------------
+	// Font header
 
 	if (param->bAddFont)
 	{
 		exp->WriteCommentLine("Font header data");
 		exp->Write1ByteLine((u8)((8 << 4) + (param->sizeY & 0x0F)), "Data size [x|y]");
 		exp->Write1ByteLine((u8)(((param->fontX & 0x0F) << 4) + (param->fontY & 0x0F)), "Font size [x|y]");
-		sprintf_s(strData, 256, "First character ASCII code (%c)", param->fontFirst);
+		sprintf_s(strData, BUFFER_SIZE, "First character ASCII code (%c)", param->fontFirst);
 		exp->Write1ByteLine((u8)param->fontFirst, strData);
-		sprintf_s(strData, 256, "Last character ASCII code (%c)", param->fontLast);
+		sprintf_s(strData, BUFFER_SIZE, "Last character ASCII code (%c)", param->fontLast);
 		exp->Write1ByteLine((u8)param->fontLast, strData);
 	}
 
@@ -430,7 +417,7 @@ bool ParseImage(ExportParameters* param, ExporterInterface* exp)
 					{
 						if (param->bSkipEmpty)
 						{
-							sprtAddr[nx + (ny * param->numX)] = MSXi_NO_ENTRY;
+							sprtAddr[nx + (ny * param->numX)] = CMSXi_NO_ENTRY;
 							continue;
 						}
 						else if (param->comp & COMPRESS_Crop_Mask)
@@ -635,7 +622,7 @@ bool ParseImage(ExportParameters* param, ExporterInterface* exp)
 			}
 		}
 	}
-	sprintf_s(strData, 256, "Total size : % i bytes", exp->GetTotalBytes());
+	sprintf_s(strData, BUFFER_SIZE, "Total size : % i bytes", exp->GetTotalBytes());
 	exp->WriteTableEnd(strData);
 
 	delete bits;
@@ -645,7 +632,7 @@ bool ParseImage(ExportParameters* param, ExporterInterface* exp)
 
 	if (param->bAddIndex)
 	{
-		sprintf_s(strData, 256, "%s_index", param->tabName);
+		sprintf_s(strData, BUFFER_SIZE, "%s_index", param->tabName.c_str());
 		exp->WriteTableBegin(TABLE_U16, strData, "Images index");
 		for (i32 i = 0; i < (i32)sprtAddr.size(); i++)
 		{
@@ -659,14 +646,14 @@ bool ParseImage(ExportParameters* param, ExporterInterface* exp)
 
 	if (((param->bpc == 2) || (param->bpc == 4)) && (param->palType == PALETTE_Custom))
 	{
-		sprintf_s(strData, 256, "%s_palette", param->tabName);
+		sprintf_s(strData, BUFFER_SIZE, "%s_palette", param->tabName.c_str());
 		exp->WriteTableBegin(TABLE_U8, strData, "Custom palette | Format: [X|R:3|X|B:3] [X:5|G:3]");
 		for (i32 i = 1; i <= param->palCount; i++)
 		{
 			RGB24 color(customPalette[i]);
 			u8 c1 = ((color.R >> 5) << 4) + (color.B >> 5);
 			u8 c2 = (color.G >> 5);
-			sprintf_s(strData, 256, "[%2i] #%06X", i, customPalette[i]);
+			sprintf_s(strData, BUFFER_SIZE, "[%2i] #%06X", i, customPalette[i]);
 			exp->Write2BytesLine(u8(c1), u8(c2), strData);
 		}
 		exp->WriteTableEnd("");

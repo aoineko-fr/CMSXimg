@@ -1,11 +1,11 @@
-//     _____    _____________  ___ .___                               
-//    /     \  /   _____/\   \/  / |   | _____ _____     ____   ____  
-//   /  \ /  \ \_____  \  \     /  |   |/     \\__  \   / ___\_/ __ \ 
-//  /    Y    \/        \ /     \  |   |  Y Y  \/ __ \_/ /_/  >  ___/ 
-//  \____|__  /_______  //___/\  \ |___|__|_|  (____  /\___  / \___  >
-//          \/        \/       \_/           \/     \//_____/      \/ 
+﻿//_____________________________________________________________________________
+//   ▄▄   ▄ ▄  ▄▄▄ ▄▄ ▄ ▄                                                      
+//  ██ ▀ ██▀█ ▀█▄  ▀█▄▀ ▄  ▄█▄█ ▄▀██                                           
+//  ▀█▄▀ ██ █ ▄▄█▀ ██ █ ██ ██ █  ▀██                                           
+//_______________________________▀▀____________________________________________
 //
 // by Guillaume "Aoineko" Blanchard (aoineko@free.fr)
+// available on GitHub (https://github.com/aoineko-fr/CMSXimg)
 // under CC-BY-AS license (https://creativecommons.org/licenses/by-sa/2.0/)
 
 #include "color.h"
@@ -15,7 +15,7 @@ u32 PaletteMSX[16] = { 0x000000, 0x000000, 0x3EB849, 0x74D07D, 0x5955E0, 0x8076F
 const bool bNativeBlueScale = false;
 const bool bNativeGammeCorrection = false;
 // MSX monitor generally has a gamma of 2.5, while on a PC the usual colourspace is sRGB nowadays, with a gamma of 2.2.
-// So, in order to get the correct colors displayed on your PC, you�ll have to apply a gamma correction of 2.2 / 2.5 = 0.88 to the palette.
+// So, in order to get the correct colors displayed on your PC, you’ll have to apply a gamma correction of 2.2 / 2.5 = 0.88 to the palette.
 // http://map.grauw.nl/articles/vdp_guide.php
 
 // Convert RGB24 to GRB8

@@ -1,11 +1,11 @@
-//     _____    _____________  ___ .___                               
-//    /     \  /   _____/\   \/  / |   | _____ _____     ____   ____  
-//   /  \ /  \ \_____  \  \     /  |   |/     \\__  \   / ___\_/ __ \ 
-//  /    Y    \/        \ /     \  |   |  Y Y  \/ __ \_/ /_/  >  ___/ 
-//  \____|__  /_______  //___/\  \ |___|__|_|  (____  /\___  / \___  >
-//          \/        \/       \_/           \/     \//_____/      \/ 
+﻿//_____________________________________________________________________________
+//   ▄▄   ▄ ▄  ▄▄▄ ▄▄ ▄ ▄                                                      
+//  ██ ▀ ██▀█ ▀█▄  ▀█▄▀ ▄  ▄█▄█ ▄▀██                                           
+//  ▀█▄▀ ██ █ ▄▄█▀ ██ █ ██ ██ █  ▀██                                           
+//_______________________________▀▀____________________________________________
 //
 // by Guillaume "Aoineko" Blanchard (aoineko@free.fr)
+// available on GitHub (https://github.com/aoineko-fr/CMSXimg)
 // under CC-BY-AS license (https://creativecommons.org/licenses/by-sa/2.0/)
 
 #pragma once
@@ -13,68 +13,66 @@
 // std
 #include <string>
 #include <vector>
-// MSXImage
-#include "msxi.h"
+#include <iostream>
+#include <fstream>
+#include <ctime>
+// CMSXi
+#include "CMSXi.h"
 #include "types.h"
 #include "color.h"
+// CMSXi
+#include "CMSXtk.h"
 
-
-/// Format of the data
-enum DataFormat
-{
-	DATA_Decimal,
-	DATA_Hexa,
-	DATA_HexaC,      // 0x00, 0xD2, 0xFF
-	DATA_HexaAsm,    // 00h, 0D2h, 0FFh
-	DATA_HexaDollar, // $00, $D2, $FF
-	DATA_HexaSharp,  // #00, #D2, #FF
-	DATA_Binary,
-};
+#define BUFFER_SIZE 1024
 
 /// Format of the data
 enum TableFormat
 {
-	TABLE_U8,
-	TABLE_U16,
-	TABLE_U32,
-	TABLE_Header,
+	TABLE_U8,					///< 8-bits unsigned interger
+	TABLE_U16,					///< 16-bits unsigned interger
+	TABLE_U32,					///< 32-bits unsigned interger
+	TABLE_Header,				///< Header structure (@see CMSXi_Header)
 };
 
+/// Exporter parameters
 struct ExportParameters
 {
-	const char* inFile;
-	const char* outFile;
-	const char* tabName;
-	i32 posX;
-	i32 posY;
-	i32 sizeX;
-	i32 sizeY;
-	i32 gapX;
-	i32 gapY;
-	i32 numX;
-	i32 numY;
-	i32 bpc;
-	bool bUseTrans;
-	u32 transColor;
-	PaletteType palType;
-	i32 palCount;
-	MSXi_Compressor comp;
-	DataFormat dataType;
-	bool bSkipEmpty;
-	DitheringMethod dither;
-	bool bAddHeader;
-	bool bAddIndex;
-	bool bAddFont;
-	c8 fontFirst;
-	c8 fontLast;
-	u8 fontX;
-	u8 fontY;
-	bool bDefine;
+	std::string inFile;			///< Input filename
+	std::string outFile;		///< Output filename
+	std::string tabName;		///< Data table name
+	i32 posX;					///< Start X position for data extracting
+	i32 posY;					///< Start Y position for data extracting
+	i32 sizeX;					///< Width of data block
+	i32 sizeY;					///< Height of data block
+	i32 gapX;					///< X gap between blocks
+	i32 gapY;					///< Y gap between blocks
+	i32 numX;					///< Number of columns of block to extract
+	i32 numY;					///< Number of row of block to extract
+	i32 bpc;					///< Bits Per Color (can be 1, 2, 4 or 8-bits)
+	bool bUseTrans;				///< Use transparency color
+	u32 transColor;				///< Transparency color (24-bits RGB)
+	PaletteType palType;		///< Palette type (@see PaletteType)
+	i32 palCount;				///< Number of colors in the palette
+	CMSXi_Compressor comp;		///< Compressor to use (@see CMSXi_Compressor)
+	CMSXtk_DataFormat format;	///< Data format to use for text export (@see CMSXtk_DataFormat)
+	bool bSkipEmpty;			///< Skip empty block (be aware this option change the block index)
+	DitheringMethod dither;		///< The dithering method to use (only for 1-bit BPC)
+	bool bAddCopy;				///< Add copyright information from file
+	std::string copyFile;		///< Copyright filename
+	bool bAddHeader;			///< Add export header table
+	bool bAddIndex;				///< Add index table (should be necessary if bSkipEmpty is True)
+	bool bAddFont;				///< Add font header information data (@see CMSXi_Font)
+	c8 fontFirst;				///< First character ASCII code
+	c8 fontLast;				///< Last character ASCII code
+	u8 fontX;					///< Font width (can be equal or greater than sizeX)
+	u8 fontY;					///< Font height (can be equal or greater than sizeY)
+	bool bDefine;				///< Add define block for C file that allow to add directive to table definition (to place data at a given address for e.g.)
+	bool bTitle;				///< Display ASCII-art title on top of exported text file
 
 	ExportParameters()
 	{
-		inFile = NULL;
-		outFile = NULL;
+		inFile = "";
+		outFile = "";
 		tabName = "table";
 		posX = 0;
 		posY = 0;
@@ -90,9 +88,11 @@ struct ExportParameters
 		palType = PALETTE_MSX1;
 		palCount = -1;
 		comp = COMPRESS_None;
-		dataType = DATA_Hexa;
+		format = DATA_Hexa;
 		bSkipEmpty = false;
 		dither = DITHER_None;
+		bAddCopy = false;
+		copyFile = "";
 		bAddHeader = false;
 		bAddIndex = false;
 		bAddFont = false;
@@ -101,17 +101,18 @@ struct ExportParameters
 		fontX = 0;
 		fontY = 0;
 		bDefine = false;
+		bTitle = true;
 	}
 };
 
 // Get the short/long name of a given compressor
-const char* GetCompressorName(MSXi_Compressor comp, bool bShort = false);
+const char* GetCompressorName(CMSXi_Compressor comp, bool bShort = false);
 
 // Get table format C text
 std::string GetTableCText(TableFormat format, std::string name);
 
 // Check if a compressor if compatible with given import parameters
-bool IsCompressorCompatible(MSXi_Compressor comp, const ExportParameters& param);
+bool IsCompressorCompatible(CMSXi_Compressor comp, const ExportParameters& param);
 
 /**
  * Exporter interface
@@ -119,12 +120,12 @@ bool IsCompressorCompatible(MSXi_Compressor comp, const ExportParameters& param)
 class ExporterInterface
 {
 protected:
-	DataFormat eFormat;
+	CMSXtk_DataFormat eFormat;
 	ExportParameters* Param;
 	u32 TotalBytes;
 
 public:
-	ExporterInterface(DataFormat f, ExportParameters* p): eFormat(f), Param(p), TotalBytes(0) {}
+	ExporterInterface(CMSXtk_DataFormat f, ExportParameters* p): eFormat(f), Param(p), TotalBytes(0) {}
 	virtual void WriteHeader() = 0;
 	virtual void WriteTableBegin(TableFormat format, std::string name, std::string comment) = 0;
 	virtual void WriteSpriteHeader(i32 number) = 0;
@@ -152,14 +153,64 @@ public:
 class ExporterText : public ExporterInterface
 {
 protected:
-#define BUFFER_SIZE 1024
 	char strFormat[BUFFER_SIZE];
 	char strData[BUFFER_SIZE];
 	std::string outData;
 
 public:
-	ExporterText(DataFormat f, ExportParameters* p) : ExporterInterface(f, p) {}
-	virtual void WriteHeader() = 0;
+	ExporterText(CMSXtk_DataFormat f, ExportParameters* p) : ExporterInterface(f, p) {}
+	virtual void WriteHeader()
+	{
+		// Add title
+		if (Param->bTitle)
+		{
+			WriteCommentLine(u8"_____________________________________________________________________________");
+			WriteCommentLine(u8"   ▄▄   ▄ ▄  ▄▄▄ ▄▄ ▄ ▄");
+			WriteCommentLine(u8"  ██ ▀ ██▀█ ▀█▄  ▀█▄▀ ▄  ▄█▄█ ▄▀██");
+			WriteCommentLine(u8"  ▀█▄▀ ██ █ ▄▄█▀ ██ █ ██ ██ █  ▀██");
+			WriteCommentLine(u8"_______________________________▀▀____________________________________________");
+		}
+
+		// Add copyright information
+		if (Param->bAddCopy)
+		{
+			std::ifstream file(Param->copyFile);
+			std::string strLine;
+			while (std::getline(file, strLine))
+			{
+				WriteCommentLine(strLine);
+			}
+			file.close();
+			WriteCommentLine(u8"_____________________________________________________________________________");
+		}
+
+		// Add version & date
+		std::time_t result = std::time(nullptr);
+		char* ltime = std::asctime(std::localtime(&result));
+		ltime[strlen(ltime) - 1] = 0; // remove final '\n'
+		sprintf_s(strData, BUFFER_SIZE, "Data generated using CMSXimg %s on %s", CMSXi_VERSION, ltime);
+		WriteCommentLine(strData);
+
+		// Add author & license
+		WriteCommentLine("by Guillaume \"Aoineko\" Blanchard (2021) under CC BY-SA free license");
+
+		// Add generation parameters
+		WriteCommentLine("Generation parameters:");
+		sprintf_s(strData, BUFFER_SIZE, " - Input file:     %s", Param->inFile.c_str());
+		WriteCommentLine(strData);
+		sprintf_s(strData, BUFFER_SIZE, " - Start position: %i, %i", Param->posX, Param->posY);
+		WriteCommentLine(strData);
+		sprintf_s(strData, BUFFER_SIZE, " - Sprite size:    %i, %i (gap: %i, %i)", Param->sizeX, Param->sizeY, Param->gapX, Param->gapY);
+		WriteCommentLine(strData);
+		sprintf_s(strData, BUFFER_SIZE, " - Sprite count:   %i, %i", Param->numX, Param->numY);
+		WriteCommentLine(strData);
+		sprintf_s(strData, BUFFER_SIZE, " - Color count:    %i (Transparent: #%04X)", 1 << Param->bpc, Param->transColor);
+		WriteCommentLine(strData);
+		sprintf_s(strData, BUFFER_SIZE, " - Compressor:     %s", GetCompressorName(Param->comp));
+		WriteCommentLine(strData);
+		sprintf_s(strData, BUFFER_SIZE, " - Skip empty:     %s", Param->bSkipEmpty ? "TRUE" : "FALSE");
+		WriteCommentLine(strData);
+	}
 	virtual void WriteTableBegin(TableFormat format, std::string name, std::string comment) = 0;
 	virtual void WriteSpriteHeader(i32 number) = 0;
 	virtual void WriteCommentLine(std::string comment) = 0;
@@ -174,15 +225,18 @@ public:
 	virtual void WriteLineEnd() = 0;
 	virtual void WriteTableEnd(std::string comment) = 0;
 
-	virtual const c8* GetNumberFormat(u8 bytes = 1) = 0;
+	virtual const c8* GetNumberFormat(u8 bytes = 1)
+	{
+		return CMSXtk_GetDataFormat(eFormat, bytes);
+	}
 
 	virtual bool Export()
 	{
 		// Write header file
 		FILE* file;
-		if (fopen_s(&file, Param->outFile, "wb") != 0)
+		if (fopen_s(&file, Param->outFile.c_str(), "wb") != 0)
 		{
-			printf("Error: Fail to create %s\n", Param->outFile);
+			printf("Error: Fail to create %s\n", Param->outFile.c_str());
 			return false;
 		}
 		fwrite(outData.c_str(), 1, outData.size(), file);
@@ -197,41 +251,7 @@ public:
 class ExporterC: public ExporterText
 {
 public:
-	ExporterC(DataFormat f, ExportParameters* p): ExporterText(f, p) {}
-
-	virtual const c8* GetNumberFormat(u8 bytes = 1)
-	{
-		switch(eFormat)
-		{
-		case DATA_Decimal:
-			return "%3u";
-		case DATA_Binary:
-			return (bytes == 1) ? "0x%02X" : "0x%04X";
-		case DATA_Hexa:
-		case DATA_HexaC:
-		case DATA_HexaAsm:
-		case DATA_HexaDollar:
-		case DATA_HexaSharp:
-		default:
-			return (bytes == 1) ? "0x%02X" : "0x%04X";
-		}	
-	}
-
-	virtual void WriteHeader()
-	{
-		sprintf_s(strData, BUFFER_SIZE,
-			"// Sprite table generated by MSXImage (v%s)\n"
-			"// - Input file:     %s\n"
-			"// - Start position: %i, %i\n"
-			"// - Sprite size:    %i, %i (gap: %i, %i)\n"
-			"// - Sprite count:   %i, %i\n"
-			"// - Color count:    %i (Transparent: #%04X)\n"
-			"// - Compressor:     %s\n"
-			"// - Skip empty:     %s\n",
-			MSXi_VERSION, Param->inFile, Param->posX, Param->posY, Param->sizeX, Param->sizeY, Param->gapX, Param->gapY, Param->numX, Param->numY,
-			1 << Param->bpc, Param->transColor, GetCompressorName(Param->comp), Param->bSkipEmpty ? "TRUE" : "FALSE");
-		outData += strData;
-	}
+	ExporterC(CMSXtk_DataFormat f, ExportParameters* p): ExporterText(f, p) {}
 
 	virtual void WriteTableBegin(TableFormat format, std::string name, std::string comment)
 	{
@@ -371,43 +391,7 @@ public:
 class ExporterASM: public ExporterText
 {
 public:
-	ExporterASM(DataFormat f, ExportParameters* p): ExporterText(f, p) {}
-
-	virtual const c8* GetNumberFormat(u8 bytes = 1)
-	{
-		switch(eFormat)
-		{
-		case DATA_Hexa:
-		case DATA_HexaC:
-			return (bytes == 1) ? "0x%02X" : "0x%04X";
-		case DATA_HexaAsm:
-			return (bytes == 1) ? "0%02Xh" : "0%04Xh";
-		case DATA_HexaDollar:
-			return (bytes == 1) ? "$%02X" : "$%04X";
-		case DATA_HexaSharp:
-			return (bytes == 1) ? "#%02X" : "#%02X";
-		case DATA_Decimal:
-		case DATA_Binary:
-		default:
-			return "%3u";
-		}	
-	}
-
-	virtual void WriteHeader()
-	{
-		sprintf_s(strData, BUFFER_SIZE,
-			"; Sprite table generated by MSXImage (v%s)\n"
-			"; - Input file:     %s\n"
-			"; - Start position: %i, %i\n"
-			"; - Sprite size:    %i, %i (gap: %i, %i)\n"
-			"; - Sprite count:   %i, %i\n"
-			"; - Color count:    %i (Transparent: #%04X)\n"
-			"; - Compressor:     %s\n"
-			"; - Skip empty:     %s\n",
-			MSXi_VERSION, Param->inFile, Param->posX, Param->posY, Param->sizeX, Param->sizeY, Param->gapX, Param->gapY, Param->numX, Param->numY, 
-			1 << Param->bpc, Param->transColor,	GetCompressorName(Param->comp), Param->bSkipEmpty ? "TRUE" : "FALSE");
-		outData += strData;
-	}
+	ExporterASM(CMSXtk_DataFormat f, ExportParameters* p): ExporterText(f, p) {}
 
 	virtual void WriteTableBegin(TableFormat format, std::string name, std::string comment)
 	{
@@ -524,7 +508,7 @@ protected:
 	std::vector<u8> outData;
 
 public:
-	ExporterBin(DataFormat f, ExportParameters* p) : ExporterInterface(f, p) {}
+	ExporterBin(CMSXtk_DataFormat f, ExportParameters* p) : ExporterInterface(f, p) {}
 	virtual void WriteHeader() {}
 	virtual void WriteTableBegin(TableFormat format, std::string name, std::string comment) {}
 	virtual void WriteSpriteHeader(i32 number) {}
@@ -582,9 +566,9 @@ public:
 	{
 		// Write header file
 		FILE* file;
-		if (fopen_s(&file, Param->outFile, "wb") != 0)
+		if (fopen_s(&file, Param->outFile.c_str(), "wb") != 0)
 		{
-			printf("Error: Fail to create %s\n", Param->outFile);
+			printf("Error: Fail to create %s\n", Param->outFile.c_str());
 			return false;
 		}
 		fwrite(outData.data(), 1, outData.size(), file);
@@ -600,7 +584,7 @@ public:
 class ExporterDummy : public ExporterInterface
 {
 public:
-	ExporterDummy(DataFormat f, ExportParameters* p) : ExporterInterface(f, p) {}
+	ExporterDummy(CMSXtk_DataFormat f, ExportParameters* p) : ExporterInterface(f, p) {}
 	virtual void WriteHeader() {}
 	virtual void WriteTableBegin(TableFormat format, std::string name, std::string comment) {}
 	virtual void WriteSpriteHeader(i32 number) {}

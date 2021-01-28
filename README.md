@@ -1,21 +1,22 @@
-````
-     _____    _____________  ___ .___                               
-    /     \  /   _____/\   \/  / |   | _____ _____     ____   ____  
-   /  \ /  \ \_____  \  \     /  |   |/     \\__  \   / ___\_/ __ \ 
-  /    Y    \/        \ /     \  |   |  Y Y  \/ __ \_/ /_/  >  ___/ 
-  \____|__  /_______  //___/\  \ |___|__|_|  (____  /\___  / \___  >
-          \/        \/       \_/           \/     \//_____/      \/ 
+```` 
+_____________________________________________________________________________									 
+   ▄ ▄  ▄▄▄ ▄▄   ▄           
+  ██▀█ ██   ██   ▄  ▄█▄█ ▄▀██
+  ██ █ ▀█▄█ ██▄▄ ██ ██ █  ▀██
+__________________________▀▀_________________________________________________
+
  by Guillaume "Aoineko" Blanchard (aoineko@free.fr)
- under CC-BY-AS license (https://creativecommons.org/licenses/by-sa/2.0/)
+ available on GitHub (https://github.com/aoineko-fr/MGLimg)
+ under CC-BY-AS free license (https://creativecommons.org/licenses/by-sa/2.0/)
 
 Command line tool to create images table to add to MSX programs (C/ASM/Bin)
 
-Usage: MSXImage -in <filename> -out <filename> [options]
+Usage: MGLimg <filename> [options]
 
 Options:
-   -in fileName    Inuput file name. Can be 8/16/24/32 bits image
+   inputFile       Inuput file name. Can be 8/16/24/32 bits image
                    Supported format: BMP, JPEG, PCX, PNG, TGA, PSD, GIF, etc.
-   -out fileName   Output file name
+   -out outFile    Output file name
    -format ?       Output format
       auto         Auto-detected using output file extension (default)
       c            C header file output
@@ -24,12 +25,14 @@ Options:
    -name name      Name of the table to generate
    -pos x y        Start position in the input image
    -size x y       Width/height of a block to export (if 0, use image size)
+   -gap x y        Gap between blocks in pixels
    -num x y        Number of block to export (columns/rows number)
    -trans color    Transparency color (in RGB 24 bits format : 0xFFFFFF)
-   -bpc ?           Number of bits per color for the output image (support 1, 4 and 8-bits)
-      1               1-bit black & white (0: tranparency or black, 1: other colors)
-      4               4-bits index in 16 colors palette
-      8               8 bits RGB 256 colors (format: [G:3|R:3|B2]; default)
+   -bpc ?	       Number of bits per color for the output image (support 1, 4 and 8-bits)
+      1	           1-bit black & white (0: tranparency or black, 1: other colors)
+      2	           2-bit index in 4 colors palette
+      4	           4-bits index in 16 colors palette
+      8	           8 bits RGB 256 colors (format: [G:3|R:3|B2]; default)
    -pal            Palette to use for 16 colors mode
       msx1         Use default MSX1 palette
       custom       Generate a custom palette and add it to the output file
@@ -50,12 +53,12 @@ Options:
    -dither ?       Dithering method (for 1-bit color only)
       none         No dithering (default)
       floyd        Floyd & Steinberg error diffusion algorithm
-      bayer4       Bayer ordered dispersed dot dithering(order 2 – 4x4 - dithering matrix)
-      bayer8       Bayer ordered dispersed dot dithering(order 3 – 8x8 - dithering matrix)
-      bayer16      Bayer ordered dispersed dot dithering(order 4 – 16x16 dithering matrix)
-      cluster6     Ordered clustered dot dithering(order 3 - 6x6 matrix)
-      cluster8     Ordered clustered dot dithering(order 4 - 8x8 matrix)
-      cluster16    Ordered clustered dot dithering(order 8 - 16x16 matrix)
+      bayer4       Bayer ordered dispersed dot dithering (order 2 – 4x4 - dithering matrix)
+      bayer8       Bayer ordered dispersed dot dithering (order 3 – 8x8 - dithering matrix)
+      bayer16      Bayer ordered dispersed dot dithering (order 4 – 16x16 dithering matrix)
+      cluster6     Ordered clustered dot dithering (order 3 - 6x6 matrix)
+      cluster8     Ordered clustered dot dithering (order 4 - 8x8 matrix)
+      cluster16    Ordered clustered dot dithering (order 8 - 16x16 matrix)
    -data ?         Text format for numbers
       dec          Decimal data (c & asm)
       hexa         Default hexadecimal data (depend on langage; default)
@@ -65,13 +68,22 @@ Options:
       hexa#        Hexadecimal data (#FF; asm only)
       bin          Binary data (11001100b; asm only)
    -skip           Skip empty sprites (default: false)
+   -idx            Add images index table (default: false)
+   -copy (file)    Add copyright information from text file
+                   If file name is empty, search for <inputFile>.txt
    -head           Add a header table contening input parameters (default: false)
+   -font x y f l   Add font header (default: false)
+                   x/y: Font width/heigt in pixels
+                   f/l: ASCII code of the first/last character to export
+                        Can be character (like: &) or hexadecimal value (0xFF format)
+   -def            Add defines for each table (default: false)
+   -notitle        Remove the ASCII-art title in top of exported text file
    -help           Display this help
-   
+	
 Example:
 
-> MSXImage -in cars.png -out test_4_rle0.h -pos 0 0 -size 13 11 -num 16 4 -name g_Cars -trans 0xE300E3 -bpc 4 -pal custom -compress rle0
+> MGLimg.exe cars.png -out test_4_rle0.h -pos 0 0 -size 13 11 -num 16 4 -name g_Cars -trans 0xE300E3 -bpc 4 -pal custom -compress rle0
 
 Load "cars.png" file and export 16x4 blocks of 13x11 pixels from upper-left corner of the image (0x0) in 4-bits index (16 colors) using a custom palette of 15 colors. Table name is "g_Cars" and RLE-transparency method is use for loose-less compression.   
 
-```` 
+````
