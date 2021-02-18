@@ -7,7 +7,6 @@
 // by Guillaume "Aoineko" Blanchard (aoineko@free.fr)
 // available on GitHub (https://github.com/aoineko-fr/CMSXimg)
 // under CC-BY-AS license (https://creativecommons.org/licenses/by-sa/2.0/)
-
 #pragma once
 
 // CMSXi

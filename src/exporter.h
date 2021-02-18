@@ -20,8 +20,7 @@
 #include "CMSXi.h"
 #include "types.h"
 #include "color.h"
-// CMSXi
-#include "CMSXtk.h"
+#include "format.h"
 
 #define BUFFER_SIZE 1024
 
@@ -34,12 +33,22 @@ enum TableFormat
 	TABLE_Header,				///< Header structure (@see CMSXi_Header)
 };
 
+/// Export mode
+enum CMSXi_Mode
+{
+	MODE_Bitmap,				///< Export each block as bitmap
+	MODE_GM1,					///< Export name/pattern/color tables for Graphic 1 mode
+	MODE_GM2,					///< Export name/pattern/color tables for Graphic 2 & 3 mode
+	MODE_Sprite16,				///< Export 16x16 sprites with specific block ordering (0,2,1,3)
+};
+
 /// Exporter parameters
 struct ExportParameters
 {
 	std::string inFile;			///< Input filename
 	std::string outFile;		///< Output filename
 	std::string tabName;		///< Data table name
+	CMSXi_Mode mode;			///< Exporter mode
 	i32 posX;					///< Start X position for data extracting
 	i32 posY;					///< Start Y position for data extracting
 	i32 sizeX;					///< Width of data block
@@ -51,10 +60,12 @@ struct ExportParameters
 	i32 bpc;					///< Bits Per Color (can be 1, 2, 4 or 8-bits)
 	bool bUseTrans;				///< Use transparency color
 	u32 transColor;				///< Transparency color (24-bits RGB)
+	bool bUseOpacity;			///< Use opacity color
+	u32 opacityColor;			///< Opacity color (24-bits RGB)
 	PaletteType palType;		///< Palette type (@see PaletteType)
 	i32 palCount;				///< Number of colors in the palette
 	CMSXi_Compressor comp;		///< Compressor to use (@see CMSXi_Compressor)
-	CMSXtk_DataFormat format;	///< Data format to use for text export (@see CMSXtk_DataFormat)
+	CMSX_DataFormat format;	///< Data format to use for text export (@see CMSX_DataFormat)
 	bool bSkipEmpty;			///< Skip empty block (be aware this option change the block index)
 	DitheringMethod dither;		///< The dithering method to use (only for 1-bit BPC)
 	bool bAddCopy;				///< Add copyright information from file
@@ -74,6 +85,7 @@ struct ExportParameters
 		inFile = "";
 		outFile = "";
 		tabName = "table";
+		mode = MODE_Bitmap;
 		posX = 0;
 		posY = 0;
 		sizeX = 0;
@@ -84,7 +96,9 @@ struct ExportParameters
 		numY = 1;
 		bpc = 8;
 		bUseTrans = false;
-		transColor = 0;
+		transColor = 0x000000;
+		bUseOpacity = false;
+		opacityColor = 0x000000;
 		palType = PALETTE_MSX1;
 		palCount = -1;
 		comp = COMPRESS_None;
@@ -108,6 +122,9 @@ struct ExportParameters
 // Get the short/long name of a given compressor
 const char* GetCompressorName(CMSXi_Compressor comp, bool bShort = false);
 
+//
+const char* GetModeName(CMSXi_Mode mode);
+
 // Get table format C text
 std::string GetTableCText(TableFormat format, std::string name);
 
@@ -120,12 +137,12 @@ bool IsCompressorCompatible(CMSXi_Compressor comp, const ExportParameters& param
 class ExporterInterface
 {
 protected:
-	CMSXtk_DataFormat eFormat;
+	CMSX_DataFormat eFormat;
 	ExportParameters* Param;
 	u32 TotalBytes;
 
 public:
-	ExporterInterface(CMSXtk_DataFormat f, ExportParameters* p): eFormat(f), Param(p), TotalBytes(0) {}
+	ExporterInterface(CMSX_DataFormat f, ExportParameters* p): eFormat(f), Param(p), TotalBytes(0) {}
 	virtual void WriteHeader() = 0;
 	virtual void WriteTableBegin(TableFormat format, std::string name, std::string comment) = 0;
 	virtual void WriteSpriteHeader(i32 number) = 0;
@@ -158,7 +175,7 @@ protected:
 	std::string outData;
 
 public:
-	ExporterText(CMSXtk_DataFormat f, ExportParameters* p) : ExporterInterface(f, p) {}
+	ExporterText(CMSX_DataFormat f, ExportParameters* p) : ExporterInterface(f, p) {}
 	virtual void WriteHeader()
 	{
 		// Add title
@@ -196,20 +213,14 @@ public:
 
 		// Add generation parameters
 		WriteCommentLine("Generation parameters:");
-		sprintf_s(strData, BUFFER_SIZE, " - Input file:     %s", Param->inFile.c_str());
-		WriteCommentLine(strData);
-		sprintf_s(strData, BUFFER_SIZE, " - Start position: %i, %i", Param->posX, Param->posY);
-		WriteCommentLine(strData);
-		sprintf_s(strData, BUFFER_SIZE, " - Sprite size:    %i, %i (gap: %i, %i)", Param->sizeX, Param->sizeY, Param->gapX, Param->gapY);
-		WriteCommentLine(strData);
-		sprintf_s(strData, BUFFER_SIZE, " - Sprite count:   %i, %i", Param->numX, Param->numY);
-		WriteCommentLine(strData);
-		sprintf_s(strData, BUFFER_SIZE, " - Color count:    %i (Transparent: #%04X)", 1 << Param->bpc, Param->transColor);
-		WriteCommentLine(strData);
-		sprintf_s(strData, BUFFER_SIZE, " - Compressor:     %s", GetCompressorName(Param->comp));
-		WriteCommentLine(strData);
-		sprintf_s(strData, BUFFER_SIZE, " - Skip empty:     %s", Param->bSkipEmpty ? "TRUE" : "FALSE");
-		WriteCommentLine(strData);
+		WriteCommentLine(CMSX_Format(" - Input file:     %s", Param->inFile.c_str()));
+		WriteCommentLine(CMSX_Format(" - Mode:           %s", GetModeName(Param->mode)));
+		WriteCommentLine(CMSX_Format(" - Start position: %i, %i", Param->posX, Param->posY));
+		WriteCommentLine(CMSX_Format(" - Sprite size:    %i, %i (gap: %i, %i)", Param->sizeX, Param->sizeY, Param->gapX, Param->gapY));
+		WriteCommentLine(CMSX_Format(" - Sprite count:   %i, %i", Param->numX, Param->numY));
+		WriteCommentLine(CMSX_Format(" - Color count:    %i (Transparent: #%04X)", 1 << Param->bpc, Param->transColor));
+		WriteCommentLine(CMSX_Format(" - Compressor:     %s", GetCompressorName(Param->comp)));
+		WriteCommentLine(CMSX_Format(" - Skip empty:     %s", Param->bSkipEmpty ? "TRUE" : "FALSE"));
 	}
 	virtual void WriteTableBegin(TableFormat format, std::string name, std::string comment) = 0;
 	virtual void WriteSpriteHeader(i32 number) = 0;
@@ -227,7 +238,7 @@ public:
 
 	virtual const c8* GetNumberFormat(u8 bytes = 1)
 	{
-		return CMSXtk_GetDataFormat(eFormat, bytes);
+		return CMSX_GetDataFormat(eFormat, bytes);
 	}
 
 	virtual bool Export()
@@ -251,7 +262,7 @@ public:
 class ExporterC: public ExporterText
 {
 public:
-	ExporterC(CMSXtk_DataFormat f, ExportParameters* p): ExporterText(f, p) {}
+	ExporterC(CMSX_DataFormat f, ExportParameters* p): ExporterText(f, p) {}
 
 	virtual void WriteTableBegin(TableFormat format, std::string name, std::string comment)
 	{
@@ -391,7 +402,7 @@ public:
 class ExporterASM: public ExporterText
 {
 public:
-	ExporterASM(CMSXtk_DataFormat f, ExportParameters* p): ExporterText(f, p) {}
+	ExporterASM(CMSX_DataFormat f, ExportParameters* p): ExporterText(f, p) {}
 
 	virtual void WriteTableBegin(TableFormat format, std::string name, std::string comment)
 	{
@@ -508,7 +519,7 @@ protected:
 	std::vector<u8> outData;
 
 public:
-	ExporterBin(CMSXtk_DataFormat f, ExportParameters* p) : ExporterInterface(f, p) {}
+	ExporterBin(CMSX_DataFormat f, ExportParameters* p) : ExporterInterface(f, p) {}
 	virtual void WriteHeader() {}
 	virtual void WriteTableBegin(TableFormat format, std::string name, std::string comment) {}
 	virtual void WriteSpriteHeader(i32 number) {}
@@ -584,7 +595,7 @@ public:
 class ExporterDummy : public ExporterInterface
 {
 public:
-	ExporterDummy(CMSXtk_DataFormat f, ExportParameters* p) : ExporterInterface(f, p) {}
+	ExporterDummy(CMSX_DataFormat f, ExportParameters* p) : ExporterInterface(f, p) {}
 	virtual void WriteHeader() {}
 	virtual void WriteTableBegin(TableFormat format, std::string name, std::string comment) {}
 	virtual void WriteSpriteHeader(i32 number) {}

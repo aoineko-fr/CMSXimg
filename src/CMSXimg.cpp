@@ -70,11 +70,17 @@ void PrintHelp()
 	printf("      asm          Assembler header file output\n");
 	printf("      bin          Raw binary data image\n");
 	printf("   -name name      Name of the table to generate\n");
+	printf("   -mode ?         Exporter mode\n");
+	printf("      bmp          Export image as bitmap (default)\n");
+	printf("      gm1          Generate all tables for Graphic mode 1 (Screen 1)\n");
+	printf("      gm2          Generate all tables for Graphic mode 2 or 3 (Screen 2 or 4)\n");
+	printf("      s16          Export 16x16 sprites with specific block ordering\n");
 	printf("   -pos x y        Start position in the input image\n");
 	printf("   -size x y       Width/height of a block to export (if 0, use image size)\n");
 	printf("   -gap x y        Gap between blocks in pixels\n");
 	printf("   -num x y        Number of block to export (columns/rows number)\n");
 	printf("   -trans color    Transparency color (in RGB 24 bits format : 0xFFFFFF)\n");
+	printf("   -opacity color  Opacity color (in RGB 24 bits format : 0xFFFFFF). All other colors are considered transparent\n");
 	printf("   -bpc ?	       Number of bits per color for the output image (support 1, 4 and 8-bits)\n");
 	printf("      1	           1-bit black & white (0: tranparency or black, 1: other colors)\n");
 	printf("      2	           2-bit index in 4 colors palette\n");
@@ -129,15 +135,17 @@ void PrintHelp()
 }
 
 // Debug
-//const char* ARGV[] = { "", "test/cars.png", "-out", "test/sprt_car_1.h", "-pos", "0", "0", "-size", "13", "11", "-num", "16", "1", "-name", "g_Car1", "-trans", "0xE300E3", "-compress", "cropline16", "-copy", "test/cmsx.txt" };
-//const char* ARGV[] = { "", "test/cars.png", "-out", "test/sprt_car_1.h", "-pos", "0", "0", "-size", "13", "11", "-num", "16", "1", "-name", "g_Car1", "-trans", "0xE300E3", "-compress", "cropline32" };
-//const char* ARGV[] = { "", "test/track_tiles.png", "-out", "test/sprt_track.h", "-pos", "0", "0", "-size", "32", "32", "-num", "8", "4", "-name", "g_TrackTiles", "-trans", "0xDA48AA", "-bpc", "1", "-compress", "crop256", "-dither", "cluster8" };
-//const char* ARGV[] = { "", "test/test_sprt.png", "-out", "test/sprt_player.h", "-pos", "0", "0", "-size", "16", "16", "-num", "11", "8", "-name", "g_PlayerSprite", "-trans", "0x336600", "-bpc", "4", "-pal", "custom", "-compress", "best" };
-//const char* ARGV[] = { "", "test/cmsx_9.png", "-out", "test/cmsx_9.h", "-pos", "0", "0", "-size", "8", "12", "-gap", "0", "4", "-num", "16", "6", "-name", "cmsx_9", "-trans", "0x000000", "-bpc", "1", "-skip", "-font", "8", "8", "!", "_" };
-//#define DEBUG_ARGS
+//const char* ARGV[] = { "", "testcases/cars.png", "-out", "testcases/sprt_car_1.h", "-pos", "0", "0", "-size", "13", "11", "-num", "16", "1", "-name", "g_Car1", "-trans", "0xE300E3", "-compress", "cropline16", "-copy", "test/cmsx.txt" };
+//const char* ARGV[] = { "", "testcases/cars.png", "-out", "testcases/sprt_car_1.h", "-pos", "0", "0", "-size", "13", "11", "-num", "16", "1", "-name", "g_Car1", "-trans", "0xE300E3", "-compress", "cropline32" };
+//const char* ARGV[] = { "", "testcases/track_tiles.png", "-out", "testcases/sprt_track.h", "-pos", "0", "0", "-size", "32", "32", "-num", "8", "4", "-name", "g_TrackTiles", "-trans", "0xDA48AA", "-bpc", "1", "-compress", "crop256", "-dither", "cluster8" };
+//const char* ARGV[] = { "", "testcases/test_sprt.png", "-out", "testcases/sprt_player.h", "-pos", "0", "0", "-size", "16", "16", "-num", "11", "8", "-name", "g_PlayerSprite", "-trans", "0x336600", "-bpc", "4", "-pal", "custom", "-compress", "best" };
+//const char* ARGV[] = { "", "testcases/cmsx_9.png", "-out", "testcases/cmsx_9.h", "-pos", "0", "0", "-size", "8", "12", "-gap", "0", "4", "-num", "16", "6", "-name", "cmsx_9", "-trans", "0x000000", "-bpc", "1", "-skip", "-font", "8", "8", "!", "_" };
+//const char* ARGV[] = { "", "testcases/Court.png", "-out", "testcases/court.h", "-name", "g_Court", "-mode", "g2" };
+const char* ARGV[] = { "", "testcases/players16.png", "-out", "testcases/players16.h", "-mode", "s16", "-pos", "0", "0", "-size", "16", "24", "-num", "13", "1", };
+#define DEBUG_ARGS
 
 /** Main entry point
-	Usage: CMSXimg -in inFile -pos x y -size x y -num x y -out outFile -palette [16|256]
+	Usage: CMSXimg inFile -pos x y -size x y -num x y -out outFile -palette [16|256]
 */
 int main(int argc, const char* argv[])
 {
@@ -148,7 +156,7 @@ int main(int argc, const char* argv[])
 
 	FreeImage_Initialise();
 
-	CMSXtk_FileFormat outFormat = FORMAT_Auto;
+	CMSX_FileFormat outFormat = FORMAT_Auto;
 	ExportParameters param;
 	i32 i;
 	bool bAutoCompress = false;
@@ -218,6 +226,11 @@ int main(int argc, const char* argv[])
 		{
 			sscanf_s(argv[++i], "%i", &param.transColor);
 			param.bUseTrans = true;
+		}
+		else if (_stricmp(argv[i], "-opacity") == 0) // Use opacity color
+		{
+			sscanf_s(argv[++i], "%i", &param.opacityColor);
+			param.bUseOpacity = true;
 		}
 		else if (_stricmp(argv[i], "-pal") == 0) // Palette type
 		{
@@ -304,6 +317,18 @@ int main(int argc, const char* argv[])
 				param.format = DATA_BinaryC;
 			else if (_stricmp(argv[i], "binB") == 0)
 				param.format = DATA_BinaryASM;
+		}
+		else if (_stricmp(argv[i], "-mode") == 0) // Exporter mode
+		{
+			i++;
+			if (_stricmp(argv[i], "bmp") == 0)
+				param.mode = MODE_Bitmap;
+			else if (_stricmp(argv[i], "gm1") == 0)
+				param.mode = MODE_GM1;
+			else if (_stricmp(argv[i], "gm2") == 0)
+				param.mode = MODE_GM2;
+			else if (_stricmp(argv[i], "s16") == 0)
+				param.mode = MODE_Sprite16;
 		}
 		else if (_stricmp(argv[i], "-skip") == 0) // Skip empty blocks
 		{
@@ -491,6 +516,11 @@ int main(int argc, const char* argv[])
 	if ((param.bAddCopy) && (!FileExists(param.copyFile)))
 	{
 		printf("Error: Copyright file not found (%s)!\n", param.copyFile.c_str());
+		return 1;
+	}
+	if (param.bUseTrans && param.bUseOpacity)
+	{
+		printf("Error: Transparency and Opacity can't be use together!\n");
 		return 1;
 	}
 	if ((param.sizeX == 0) || (param.sizeY == 0))

@@ -200,6 +200,7 @@ copy $(OutDir)$(TargetName)$(TargetExt) $(ProjectDir)..\CMSXtk\bin\$(TargetName)
     <ClCompile Include="src\image.cpp" />
     <ClCompile Include="src\CMSXimg.cpp" />
     <ClCompile Include="src\parser.cpp" />
+    <ClCompile Include="src\format.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Freeimage\FreeImage.h" />
@@ -208,6 +209,7 @@ copy $(OutDir)$(TargetName)$(TargetExt) $(ProjectDir)..\CMSXtk\bin\$(TargetName)
     <ClInclude Include="src\image.h" />
     <ClInclude Include="src\CMSXi.h" />
     <ClInclude Include="src\parser.h" />
+    <ClInclude Include="src\format.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

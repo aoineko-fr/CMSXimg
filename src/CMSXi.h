@@ -10,7 +10,7 @@
 
 #pragma once
 
-#define CMSXi_VERSION "1.9.1"
+#define CMSXi_VERSION "1.10.0"
 
 /// Compression mode
 enum CMSXi_Compressor

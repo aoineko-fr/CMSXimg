@@ -11,24 +11,39 @@
 // CMSXi
 #include "exporter.h"
 
+//
 const char* GetCompressorName(CMSXi_Compressor comp, bool bShort)
 {
 	switch (comp)
 	{
 	case COMPRESS_None:        return "None";
-	case COMPRESS_Crop16:      return bShort ? "Crop16" : "Crop16 (4-bits, max 16x16)";
-	case COMPRESS_CropLine16:  return bShort ? "CropLine16" : "CropLine16 (4-bits per line, max 16x16)";
-	case COMPRESS_Crop32:      return bShort ? "Crop32" : "Crop32 (5-bits, max 32x32)";
-	case COMPRESS_CropLine32:  return bShort ? "CropLine32" : "CropLine32 (5-bits per line, max 32x32)";
-	case COMPRESS_Crop256:     return bShort ? "Crop256" : "Crop256 (8-bits, max 256x256)";
+	case COMPRESS_Crop16:      return bShort ? "Crop16" :      "Crop16 (4-bits, max 16x16)";
+	case COMPRESS_CropLine16:  return bShort ? "CropLine16" :  "CropLine16 (4-bits per line, max 16x16)";
+	case COMPRESS_Crop32:      return bShort ? "Crop32" :      "Crop32 (5-bits, max 32x32)";
+	case COMPRESS_CropLine32:  return bShort ? "CropLine32" :  "CropLine32 (5-bits per line, max 32x32)";
+	case COMPRESS_Crop256:     return bShort ? "Crop256" :     "Crop256 (8-bits, max 256x256)";
 	case COMPRESS_CropLine256: return bShort ? "CropLine256" : "CropLine256 (8-bits per line, max 256x256)";
-	case COMPRESS_RLE0:        return bShort ? "RLE0" : "RLE0 (7-bits Run-length encoding for transparency)";
-	case COMPRESS_RLE4:        return bShort ? "RLE4" : "RLE4 (4-bits Run-length encoding)";
-	case COMPRESS_RLE8:        return bShort ? "RLE8" : "RLE8 (8-bits Run-length encoding)";
+	case COMPRESS_RLE0:        return bShort ? "RLE0" :        "RLE0 (7-bits Run-length encoding for transparency)";
+	case COMPRESS_RLE4:        return bShort ? "RLE4" :        "RLE4 (4-bits Run-length encoding)";
+	case COMPRESS_RLE8:        return bShort ? "RLE8" :        "RLE8 (8-bits Run-length encoding)";
 	}
 	return "Unknow";
 }
 
+//
+const char* GetModeName(CMSXi_Mode mode)
+{
+	switch (mode)
+	{
+	case MODE_Bitmap:	return "Bitmap";
+	case MODE_GM1:		return "Graphic Mode 1";
+	case MODE_GM2:		return "Graphic Mode 2";
+	case MODE_Sprite16:	return "Sprite 16x16";
+	};
+	return "Unknow";
+}
+
+//
 std::string GetTableCText(TableFormat format, std::string name)
 {
 	switch (format)

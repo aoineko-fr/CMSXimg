@@ -17,7 +17,7 @@
 #include <vector>
 // FreeImage
 #include "FreeImage.h"
-// CMSXie
+// CMSXi
 #include "color.h"
 #include "exporter.h"
 #include "image.h"
@@ -82,8 +82,12 @@ u8 GetGBR8(u32 color, bool bUseTrans, u32 transRGB)
 	return c8;
 }
 
+//-----------------------------------------------------------------------------
+// EXPORT BITMAP
+//-----------------------------------------------------------------------------
+
 /***/
-bool ParseImage(ExportParameters* param, ExporterInterface* exp)
+bool ExportBitmap(ExportParameters * param, ExporterInterface * exp)
 {
 	FIBITMAP *dib, *dib32;
 	i32 i, j, nx, ny, bit, minX, maxX, minY, maxY;
@@ -427,46 +431,48 @@ bool ParseImage(ExportParameters* param, ExporterInterface* exp)
 					// Sprite header
 					if ((param->comp & COMPRESS_Crop_Mask))
 					{
-						if (param->bpc == 2) // 2-bits index color palette
+						if (param->bpc == 1) // 1-bit black & white
 						{
-							minX &= 0xFC; // round 4
-							maxX |= 0x03; // round 4
+							minX &= 0xF8;	 // Round down 8
+							maxX |= 0x07;	 // Round up 8
+						}
+						else if (param->bpc == 2) // 2-bits index color palette
+						{
+							minX &= 0xFC;	 // Round down 4
+							maxX |= 0x03;	 // Round up 4
 						}
 						else if (param->bpc == 4) // 4-bits index color palette
 						{
-							minX &= 0xFE; // round 2
-							maxX |= 0x01; // round 2
+							minX &= 0xFE;	 // Round down 2
+							maxX |= 0x01;	 // Round up 2
 						}
 
 						if (param->comp == COMPRESS_Crop16)
 						{
-							minX &= 0x0F; // Clamp to 4bits (0-15)
-							maxX &= 0x0F;
-							minY &= 0x0F;
-							maxY &= 0x0F;
+							minX &= 0x0F;	// Clamp to 4-bits (0-15)
+							maxX &= 0x0F;	// Clamp to 4-bits (0-15)
+							minY &= 0x0F;	// Clamp to 4-bits (0-15)
+							maxY &= 0x0F;	// Clamp to 4-bits (0-15)
 							exp->Write2BytesLine(u8((minX << 4) + maxX), u8(((minY) << 4) + maxY), "[minX:4|maxX:4] [minY:4|maxY:4]");
 						}
 						else if (param->comp == COMPRESS_CropLine16)
 						{
-							minY &= 0x0F;
-							maxY &= 0x0F;
+							minY &= 0x0F;	// Clamp to 4-bits (0-15)
+							maxY &= 0x0F;	// Clamp to 4-bits (0-15)
 							exp->Write1ByteLine(u8((minY << 4) + maxY), "[minY:4|maxY:4]");
 						}
 						else if (param->comp == COMPRESS_Crop32)
 						{
-							if (minX > 0x07)
-								minX = 0x07; // Max to 3bits (0-7)
-							maxX &= 0x1F;    // Clamp to 5bits (0-31)
-							if (minY > 0x07)
-								minY = 0x07; // Max to 3bits (0-7)
-							maxY &= 0x1F;    // Clamp to 5bits (0-31)
+							minX &= 0x07;	// Clamp to 3-bits (0-7)
+							maxX &= 0x1F;	// Clamp to 5-bits (0-31)
+							minY &= 0x07;	// Clamp to 3-bits (0-7)
+							maxY &= 0x1F;	// Clamp to 5-bits (0-31)
 							exp->Write2BytesLine(u8((minX << 5) + maxX), u8(((minY) << 5) + maxY), "[minX:3|maxX:5] [minY:3|maxY:5]");
 						}
 						else if (param->comp == COMPRESS_CropLine32)
 						{
-							if (minY > 0x07)
-								minY = 0x07; // Max to 3bits (0-7)
-							maxY &= 0x1F;    // Clamp to 5bits (0-31)
+							minY &= 0x07;	// Clamp to 3-bits (0-7)
+							maxY &= 0x1F;	// Clamp to 5-bits (0-31)
 							exp->Write1ByteLine(u8(((minY) << 5) + maxY), "[minY:3|maxY:5]");
 						}
 						else if (param->comp == COMPRESS_Crop256)
@@ -502,29 +508,33 @@ bool ParseImage(ExportParameters* param, ExporterInterface* exp)
 										maxX = i;
 								}
 							}
-							if (param->bpc == 2) // 2-bits index color palette
+							if (param->bpc == 1) // 1-bit black & white
 							{
-								minX &= 0xFC; // round 4
-								maxX |= 0x03; // round 4
+								minX &= 0xF8;	 // Round down 8
+								maxX |= 0x07;	 // Round up 8
+							}
+							else if (param->bpc == 2) // 2-bits index color palette
+							{
+								minX &= 0xFC;	 // Round down 4
+								maxX |= 0x03;	 // Round up 4
 							}
 							else if (param->bpc == 4) // 4-bits index color palette
 							{
-								minX &= 0xFE; // round 2
-								maxX |= 0x01; // round 2
+								minX &= 0xFE;	 // Round down 2
+								maxX |= 0x01;	 // Round up 2
 							}
 
 							// Add row range info
 							if (param->comp == COMPRESS_CropLine16)
 							{
-								minX &= 0x0F;	 // Clamp to 4bits (0-15)
-								maxX &= 0x0F;	 // Clamp to 4bits (0-15)
+								minX &= 0x0F;	// Clamp to 4-bits (0-15)
+								maxX &= 0x0F;	// Clamp to 4-bits (0-15)
 								exp->Write1ByteLine(u8((minX << 4) + maxX), "[minX:4|maxX:4]");
 							}
 							else if (param->comp == COMPRESS_CropLine32)
 							{
-								if (minX > 0x07)
-									minX = 0x07; // Clamp to 3bits (0-7)
-								maxX &= 0x1F;	 // Clamp to 5bits (0-31)
+								minX &= 0x07;	// Clamp to 3-bits (0-7)
+								maxX &= 0x1F;	// Clamp to 5-bits (0-31)
 								exp->Write1ByteLine(u8(((minX) << 5) + maxX), "[minX:3|maxX:5]");
 							}
 							else if (param->comp == COMPRESS_CropLine256)
@@ -712,4 +722,224 @@ void Create16ColorsPalette(const char* filename)
 	fopen_s(&file, filename, "wb");
 	fwrite(ColorTable, sizeof(ColorTable), 1, file);
 	fclose(file);
+}
+
+//-----------------------------------------------------------------------------
+// EXPORT GRAPHIC 1
+//-----------------------------------------------------------------------------
+
+/***/
+bool ExportGM1(ExportParameters* param, ExporterInterface* exp)
+{
+	return false;
+}
+
+//-----------------------------------------------------------------------------
+// EXPORT GRAPHIC 2
+//-----------------------------------------------------------------------------
+
+///
+struct Chunk
+{
+	u8 Pattern[8];
+	u8 Color[8];
+};
+
+///
+u8 GetChunkId(std::vector<Chunk>& list, const Chunk& chunk)
+{
+	for (u8 i = 0; i < list.size(); i++)
+	{
+		if (memcmp(&list[i], &chunk, sizeof(Chunk)) == 0)
+			return i;
+	}
+	list.push_back(chunk);
+	return (u8)(list.size() - 1);
+}
+
+///
+void ValidateChunk(Chunk& chunk)
+{
+	for (u8 i = 0; i < 8; i++)
+	{
+		u8 c0 = chunk.Color[i] & 0xF;
+		u8 c1 = (chunk.Color[i] >> 4) & 0xF;
+		if (c1 < c0)
+		{
+			chunk.Color[i] = (c0 << 4) + c1;
+			chunk.Pattern[i] = ~chunk.Pattern[i];
+		}
+	}
+}
+
+/***/
+bool ExportGM2(ExportParameters* param, ExporterInterface* exp)
+{
+	std::vector<Chunk> chunkList;
+	FIBITMAP* dib, * dib32;
+
+	//-------------------------------------------------------------------------
+	// Prepare image
+
+	dib = LoadImage(param->inFile.c_str()); // open and load the file using the default load option
+	if (dib == NULL)
+	{
+		printf("Error: Fail to load %s\n", param->inFile.c_str());
+		return false;
+	}
+
+	// Get 32 bits raw datas
+	dib32 = FreeImage_ConvertTo32Bits(dib);
+	FreeImage_Unload(dib); // free the original dib
+	i32 imageX = FreeImage_GetWidth(dib32);
+	i32 imageY = FreeImage_GetHeight(dib32);
+	i32 scanWidth = FreeImage_GetPitch(dib32);
+	i32 bpp = FreeImage_GetBPP(dib32);
+	BYTE* bits = new BYTE[scanWidth * imageY];
+	FreeImage_ConvertToRawBits(bits, dib32, scanWidth, 32, FI_RGBA_RED_MASK, FI_RGBA_GREEN_MASK, FI_RGBA_BLUE_MASK, TRUE);
+	FreeImage_Unload(dib32);
+
+	// Check image size
+	if ((param->sizeX == 0) || (param->sizeY == 0))
+	{
+		param->sizeX = imageX - param->posX;
+		param->sizeY = imageY - param->posY;
+	}
+	if ((param->posX + param->sizeX) > imageX)
+		param->sizeX = imageX - param->posX;
+	if ((param->posY + param->sizeY) > imageY)
+		param->sizeY = imageY - param->posY;
+
+	param->numX = param->sizeX / 8;
+	param->numY = param->sizeY / 8;
+
+	// File header
+	exp->WriteHeader();
+
+	//-------------------------------------------------------------------------
+	// NAMES TABLE
+
+	exp->WriteTableBegin(TABLE_U8, param->tabName + "_Names", "Names Table");
+
+	// Parse image
+	for (i32 ny = 0; ny < param->numY; ny++)
+	{
+		exp->WriteLineBegin();
+		for (i32 nx = 0; nx < param->numX; nx++)
+		{
+			Chunk chunk;
+
+			// Generate chunk
+			for (i32 j= 0; j < 8; j++)
+			{
+				u8 pattern = 0;
+				std::vector<u8> colors;
+				for (i32 i = 0; i < 8; i++)
+				{
+					i32 idx = param->posX + i + (nx * 8) + ((param->posY + j + (ny * 8)) * imageX);
+					u32 c24 = 0xFFFFFF & ((u32*)bits)[idx];
+					u8 c4 = GetNearestColorIndex(c24, PaletteMSX, 16);
+					if (colors.empty()) // special case: first color
+					{
+						colors.push_back(c4);
+					}
+					else if((colors.size() == 1) && (c4 != colors[0])) // special case: second color
+					{
+						colors.push_back(c4);
+					}
+
+					if (c4 == colors[0])
+						continue;
+					else if (c4 == colors[1])
+						pattern |= 1 << (7 - i);
+					else
+						printf("Warning: More than 2 colors on a 8 pixels line (%i, %i)\n", param->posX + i + (nx * param->sizeX), param->posY + j + (ny * param->sizeY));
+				}
+				if (colors.size() == 1)
+					colors.push_back(colors[0]);
+
+				chunk.Pattern[j] = pattern;
+				chunk.Color[j] = (colors[1] << 4) + colors[0];
+			}
+
+			u8 patIdx = GetChunkId(chunkList, chunk);
+			exp->Write1ByteData(patIdx);
+		}
+		exp->WriteLineEnd();
+	}
+	i32 namesSize = exp->GetTotalBytes();
+	exp->WriteTableEnd(CMSX_Format("Names size: %i Bytes", namesSize));
+
+	delete bits;
+
+	//-------------------------------------------------------------------------
+	// PATERNS TABLE
+
+	exp->WriteTableBegin(TABLE_U8, param->tabName + "_Patterns", "Patterns Table");
+	for (i32 i = 0; i < (i32)chunkList.size(); i++)
+	{
+		// Print sprite header
+		exp->WriteSpriteHeader(i);
+		for (i32 j = 0; j < 8; j++)
+		{
+			exp->WriteLineBegin();
+			exp->Write8BitsData(chunkList[i].Pattern[j]);
+			exp->WriteLineEnd();
+		}
+	}
+	i32 patternsSize = exp->GetTotalBytes() - namesSize;
+	exp->WriteTableEnd(CMSX_Format("Patterns size: %i Bytes", patternsSize));
+
+	//-------------------------------------------------------------------------
+	// COLORS TABLE
+
+	exp->WriteTableBegin(TABLE_U8, param->tabName + "_Colors", "Colors Table");
+	for (i32 i = 0; i < (i32)chunkList.size(); i++)
+	{
+		// Print sprite header
+		exp->WriteSpriteHeader(i);
+		exp->WriteLineBegin();
+		for (i32 j = 0; j < 8; j++)
+		{
+			exp->Write1ByteData(chunkList[i].Color[j]);
+		}
+		exp->WriteLineEnd();
+	}
+	i32 colorsSize = exp->GetTotalBytes() - namesSize - patternsSize;
+	exp->WriteTableEnd(CMSX_Format("Colors size: %i Bytes", colorsSize));
+	exp->WriteLineEnd();
+	exp->WriteCommentLine(CMSX_Format("Total size: %i Bytes", exp->GetTotalBytes()));
+
+	//-------------------------------------------------------------------------
+	// Write file
+	bool bSaved = exp->Export();
+
+	return bSaved;
+}
+
+//-----------------------------------------------------------------------------
+// EXPORT 16x16 SPRITES
+//-----------------------------------------------------------------------------
+
+/***/
+bool ExportSprite16(ExportParameters* param, ExporterInterface* exp)
+{
+	return false;
+}
+
+//-----------------------------------------------------------------------------
+// PARSE IMAGE
+//-----------------------------------------------------------------------------
+
+/***/
+bool ParseImage(ExportParameters* param, ExporterInterface* exp)
+{
+	switch (param->mode)
+	{
+	default:
+	case MODE_Bitmap:	return ExportBitmap(param, exp);
+	case MODE_GM1:		return ExportGM1(param, exp);
+	case MODE_GM2:		return ExportGM2(param, exp);
+	case MODE_Sprite16:	return ExportSprite16(param, exp);
+	};
 }
