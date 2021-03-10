@@ -82,8 +82,8 @@ Options:
 	
 Example:
 
-> MGLimg.exe cars.png -out test_4_rle0.h -pos 0 0 -size 13 11 -num 16 4 -name g_Cars -trans 0xE300E3 -bpc 4 -pal custom -compress rle0
+> CMSXimg.exe cars.png -out test_4_rle0.h -pos 0 0 -size 13 11 -num 16 4 -name g_Cars -trans 0xE300E3 -bpc 4 -pal custom -compress rle0
 
-Load "cars.png" file and export 16x4 blocks of 13x11 pixels from upper-left corner of the image (0x0) in 4-bits index (16 colors) using a custom palette of 15 colors. Table name is "g_Cars" and RLE-transparency method is use for loose-less compression.   
+Load "cars.png" file and export 16x4 blocks of 13x11 pixels each from upper-left corner of the image (0x0) in 4-bits index (16 colors) using a custom palette of 15 colors. Table name is "g_Cars" and RLE-transparency method is use for loose-less compression.   
 
 ````
