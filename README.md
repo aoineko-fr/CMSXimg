@@ -23,11 +23,26 @@ Options:
       asm          Assembler header file output
       bin          Raw binary data image
    -name name      Name of the table to generate
+   -mode ?         Exporter mode
+      bmp          Export image as bitmap (default)
+      gm1          Generate all tables for Graphic mode 1 (Screen 1)
+      gm2          Generate all tables for Graphic mode 2 or 3 (Screen 2 or 4)
+      sprt         Export 16x16 sprites with specific block ordering
    -pos x y        Start position in the input image
    -size x y       Width/height of a block to export (if 0, use image size)
    -gap x y        Gap between blocks in pixels
    -num x y        Number of block to export (columns/rows number)
+   -l ? sx sy nx ny col1 (col2, col3, ...)
+                   Layer including the given color(s) (coordinate are relative to each expoted block)
+      i8           8x8 sprites layer with only provided colors
+      i16          16x16 sprites layer with only provided colors
+      e8           8x8 sprites layer with all colors but the provided ones
+      e16          16x16 sprites layer with all colors but the provided ones
+                   sx/sy is layer start position in pixel in a block
+                   nx/ny is layer size in sprite count (1 equal 8 or 16 according to sprite size)
+                   Colors are in RGB 24 bits format (0xFFFFFF)
    -trans color    Transparency color (in RGB 24 bits format : 0xFFFFFF)
+   -opacity color  Opacity color (in RGB 24 bits format : 0xFFFFFF). All other colors are considered transparent
    -bpc ?	       Number of bits per color for the output image (support 1, 4 and 8-bits)
       1	           1-bit black & white (0: tranparency or black, 1: other colors)
       2	           2-bit index in 4 colors palette
@@ -48,6 +63,7 @@ Options:
       rle0         Run-length encoding of transparent blocs (7-bits for block length)
       rle4         Run-length encoding for all colors (4-bits for block length)
       rle8         Run-length encoding for all colors (8-bits for block length)
+      rlep         Pattern based run-length encoding (6-bits for block length)
       auto         Determine a good compression method according to parameters
       best         Search for best compressor according to input parameters (smallest data)
    -dither ?       Dithering method (for 1-bit color only)
@@ -76,7 +92,9 @@ Options:
                    x/y: Font width/heigt in pixels
                    f/l: ASCII code of the first/last character to export
                         Can be character (like: &) or hexadecimal value (0xFF format)
-   -def            Add defines for each table (default: false)
+   -offset x       Offset of layout index for GM1 et GM2 mode (default: 0)
+   -at x           Data starting address (can be decimal or hexadecimal starting with '0x')
+   -def            Add defines for each table
    -notitle        Remove the ASCII-art title in top of exported text file
    -help           Display this help
 	
