@@ -6,12 +6,12 @@ _____________________________________________________________________________
 _______________________________▀▀____________________________________________
 
  by Guillaume "Aoineko" Blanchard (aoineko@free.fr)
- available on GitHub (https://github.com/aoineko-fr/MGLimg)
+ available on GitHub (https://github.com/aoineko-fr/CMSXimg)
  under CC-BY-AS free license (https://creativecommons.org/licenses/by-sa/2.0/)
 
 Command line tool to create images table to add to MSX programs (C/ASM/Bin)
 
-Usage: MGLimg <filename> [options]
+Usage: CMSXimg <filename> [options]
 
 Options:
    inputFile       Inuput file name. Can be 8/16/24/32 bits image
