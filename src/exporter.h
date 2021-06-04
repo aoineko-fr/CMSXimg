@@ -39,7 +39,19 @@ enum CMSXi_Mode
 	MODE_Bitmap,				///< Export each block as bitmap
 	MODE_GM1,					///< Export name/pattern/color tables for Graphic 1 mode
 	MODE_GM2,					///< Export name/pattern/color tables for Graphic 2 & 3 mode
-	MODE_Sprite16,				///< Export 16x16 sprites with specific block ordering (0,2,1,3)
+	MODE_Sprite,				///< Export 16x16 sprites with specific block ordering (0,2,1,3)
+};
+
+///
+struct Layer
+{
+	i32 posX;					///< Start X position for the layer (relative to block coordante)
+	i32 posY;					///< Start Y position for the layer (relative to block coordante)
+	u32 numX;					///< Width of the layer (in sprite size unit)
+	u32 numY;					///< Height of the layer (in sprite size unit)
+	bool size16;				///< 
+	bool include;				///< 
+	std::vector<u32> colors;	///< Layer colors
 };
 
 /// Exporter parameters
@@ -65,7 +77,7 @@ struct ExportParameters
 	PaletteType palType;		///< Palette type (@see PaletteType)
 	i32 palCount;				///< Number of colors in the palette
 	CMSXi_Compressor comp;		///< Compressor to use (@see CMSXi_Compressor)
-	CMSX_DataFormat format;	///< Data format to use for text export (@see CMSX_DataFormat)
+	CMSX_DataFormat format;		///< Data format to use for text export (@see CMSX_DataFormat)
 	bool bSkipEmpty;			///< Skip empty block (be aware this option change the block index)
 	DitheringMethod dither;		///< The dithering method to use (only for 1-bit BPC)
 	bool bAddCopy;				///< Add copyright information from file
@@ -77,8 +89,12 @@ struct ExportParameters
 	c8 fontLast;				///< Last character ASCII code
 	u8 fontX;					///< Font width (can be equal or greater than sizeX)
 	u8 fontY;					///< Font height (can be equal or greater than sizeY)
+	u8 offset;					///< Offset of layout index for GM1 et GM2 mode
+	bool bStartAddr;			///< Add starting address in the data definition
+	u32 startAddr;				///< Data starting adress
 	bool bDefine;				///< Add define block for C file that allow to add directive to table definition (to place data at a given address for e.g.)
 	bool bTitle;				///< Display ASCII-art title on top of exported text file
+	std::vector<Layer> layers;	///< Block layers
 
 	ExportParameters()
 	{
@@ -114,7 +130,10 @@ struct ExportParameters
 		fontLast = 0;
 		fontX = 0;
 		fontY = 0;
+		offset = 0;
 		bDefine = false;
+		bStartAddr = false;
+		startAddr = 0;
 		bTitle = true;
 	}
 };
@@ -213,14 +232,26 @@ public:
 
 		// Add generation parameters
 		WriteCommentLine("Generation parameters:");
-		WriteCommentLine(CMSX_Format(" - Input file:     %s", Param->inFile.c_str()));
-		WriteCommentLine(CMSX_Format(" - Mode:           %s", GetModeName(Param->mode)));
-		WriteCommentLine(CMSX_Format(" - Start position: %i, %i", Param->posX, Param->posY));
-		WriteCommentLine(CMSX_Format(" - Sprite size:    %i, %i (gap: %i, %i)", Param->sizeX, Param->sizeY, Param->gapX, Param->gapY));
-		WriteCommentLine(CMSX_Format(" - Sprite count:   %i, %i", Param->numX, Param->numY));
-		WriteCommentLine(CMSX_Format(" - Color count:    %i (Transparent: #%04X)", 1 << Param->bpc, Param->transColor));
-		WriteCommentLine(CMSX_Format(" - Compressor:     %s", GetCompressorName(Param->comp)));
-		WriteCommentLine(CMSX_Format(" - Skip empty:     %s", Param->bSkipEmpty ? "TRUE" : "FALSE"));
+		WriteCommentLine(CMSX::Format(" - Input file:     %s", Param->inFile.c_str()));
+		WriteCommentLine(CMSX::Format(" - Mode:           %s", GetModeName(Param->mode)));
+		WriteCommentLine(CMSX::Format(" - Start position: %i, %i", Param->posX, Param->posY));
+		WriteCommentLine(CMSX::Format(" - Sprite size:    %i, %i (gap: %i, %i)", Param->sizeX, Param->sizeY, Param->gapX, Param->gapY));
+		WriteCommentLine(CMSX::Format(" - Sprite count:   %i, %i", Param->numX, Param->numY));
+		WriteCommentLine(CMSX::Format(" - Color count:    %i (Transparent: #%04X)", 1 << Param->bpc, Param->transColor));
+		WriteCommentLine(CMSX::Format(" - Compressor:     %s", GetCompressorName(Param->comp)));
+		WriteCommentLine(CMSX::Format(" - Skip empty:     %s", Param->bSkipEmpty ? "TRUE" : "FALSE"));
+		switch (Param->mode)
+		{
+		default:
+		case MODE_Bitmap:
+			break;
+		case MODE_GM1:
+		case MODE_GM2:
+			WriteCommentLine(CMSX::Format(" - Offset:         %i", Param->offset));
+			break;
+		case MODE_Sprite:
+			break;
+		};
 	}
 	virtual void WriteTableBegin(TableFormat format, std::string name, std::string comment) = 0;
 	virtual void WriteSpriteHeader(i32 number) = 0;
@@ -266,7 +297,16 @@ public:
 
 	virtual void WriteTableBegin(TableFormat format, std::string name, std::string comment)
 	{
-		if (Param->bDefine)
+		if (Param->bStartAddr)
+		{
+			sprintf_s(strData, BUFFER_SIZE,
+				"\n"
+				"// %s\n"
+				"__at(0x%X) %s =\n"
+				"{\n",
+				comment.c_str(), Param->startAddr + GetTotalBytes(), GetTableCText(format, name).c_str());
+		}
+		else if (Param->bDefine)
 		{
 			sprintf_s(strData, BUFFER_SIZE,
 				"\n"

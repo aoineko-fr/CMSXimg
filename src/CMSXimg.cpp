@@ -51,6 +51,13 @@ bool FileExists(const std::string& filename)
 	}
 	return false;
 }
+
+/// Check if 2 string are equal
+//bool CMSX::StrEqual(const c8* str1, const c8* str2)
+//{
+//	return (_stricmp(str1, str2) == 0);
+//}
+
 //-----------------------------------------------------------------------------
 // Main
 //-----------------------------------------------------------------------------
@@ -74,11 +81,20 @@ void PrintHelp()
 	printf("      bmp          Export image as bitmap (default)\n");
 	printf("      gm1          Generate all tables for Graphic mode 1 (Screen 1)\n");
 	printf("      gm2          Generate all tables for Graphic mode 2 or 3 (Screen 2 or 4)\n");
-	printf("      s16          Export 16x16 sprites with specific block ordering\n");
+	printf("      sprt         Export 16x16 sprites with specific block ordering\n");
 	printf("   -pos x y        Start position in the input image\n");
 	printf("   -size x y       Width/height of a block to export (if 0, use image size)\n");
 	printf("   -gap x y        Gap between blocks in pixels\n");
 	printf("   -num x y        Number of block to export (columns/rows number)\n");
+	printf("   -l ? sx sy nx ny col1 (col2, col3, ...)\n");
+	printf("                   Layer including the given color(s) (coordinate are relative to each expoted block)\n");
+	printf("      i8           8x8 sprites layer with only provided colors\n");
+	printf("      i16          16x16 sprites layer with only provided colors\n");
+	printf("      e8           8x8 sprites layer with all colors but the provided ones\n");
+	printf("      e16          16x16 sprites layer with all colors but the provided ones\n");
+	printf("                   sx/sy is layer start position in pixel in a block\n");
+	printf("                   nx/ny is layer size in sprite count (1 equal 8 or 16 according to sprite size)\n");
+	printf("                   Colors are in RGB 24 bits format (0xFFFFFF)\n");
 	printf("   -trans color    Transparency color (in RGB 24 bits format : 0xFFFFFF)\n");
 	printf("   -opacity color  Opacity color (in RGB 24 bits format : 0xFFFFFF). All other colors are considered transparent\n");
 	printf("   -bpc ?	       Number of bits per color for the output image (support 1, 4 and 8-bits)\n");
@@ -101,6 +117,7 @@ void PrintHelp()
 	printf("      rle0         Run-length encoding of transparent blocs (7-bits for block length)\n");
 	printf("      rle4         Run-length encoding for all colors (4-bits for block length)\n");
 	printf("      rle8         Run-length encoding for all colors (8-bits for block length)\n");
+	printf("      rlep         Pattern based run-length encoding (6-bits for block length)\n");
 	printf("      auto         Determine a good compression method according to parameters\n");
 	printf("      best         Search for best compressor according to input parameters (smallest data)\n");
 	printf("   -dither ?       Dithering method (for 1-bit color only)\n");
@@ -129,20 +146,38 @@ void PrintHelp()
 	printf("                   x/y: Font width/heigt in pixels\n");
 	printf("                   f/l: ASCII code of the first/last character to export\n");
 	printf("                        Can be character (like: &) or hexadecimal value (0xFF format)\n");
-	printf("   -def            Add defines for each table (default: false)\n");
+	printf("   -offset x       Offset of layout index for GM1 et GM2 mode (default: 0)\n");
+	printf("   -at x           Data starting address (can be decimal or hexadecimal starting with '0x')\n");
+	printf("   -def            Add defines for each table\n");
 	printf("   -notitle        Remove the ASCII-art title in top of exported text file\n");
 	printf("   -help           Display this help\n");
 }
 
 // Debug
-//const char* ARGV[] = { "", "testcases/cars.png", "-out", "testcases/sprt_car_1.h", "-pos", "0", "0", "-size", "13", "11", "-num", "16", "1", "-name", "g_Car1", "-trans", "0xE300E3", "-compress", "cropline16", "-copy", "test/cmsx.txt" };
-//const char* ARGV[] = { "", "testcases/cars.png", "-out", "testcases/sprt_car_1.h", "-pos", "0", "0", "-size", "13", "11", "-num", "16", "1", "-name", "g_Car1", "-trans", "0xE300E3", "-compress", "cropline32" };
-//const char* ARGV[] = { "", "testcases/track_tiles.png", "-out", "testcases/sprt_track.h", "-pos", "0", "0", "-size", "32", "32", "-num", "8", "4", "-name", "g_TrackTiles", "-trans", "0xDA48AA", "-bpc", "1", "-compress", "crop256", "-dither", "cluster8" };
-//const char* ARGV[] = { "", "testcases/test_sprt.png", "-out", "testcases/sprt_player.h", "-pos", "0", "0", "-size", "16", "16", "-num", "11", "8", "-name", "g_PlayerSprite", "-trans", "0x336600", "-bpc", "4", "-pal", "custom", "-compress", "best" };
-//const char* ARGV[] = { "", "testcases/cmsx_9.png", "-out", "testcases/cmsx_9.h", "-pos", "0", "0", "-size", "8", "12", "-gap", "0", "4", "-num", "16", "6", "-name", "cmsx_9", "-trans", "0x000000", "-bpc", "1", "-skip", "-font", "8", "8", "!", "_" };
-//const char* ARGV[] = { "", "testcases/Court.png", "-out", "testcases/court.h", "-name", "g_Court", "-mode", "g2" };
-const char* ARGV[] = { "", "testcases/players16.png", "-out", "testcases/players16.h", "-mode", "s16", "-pos", "0", "0", "-size", "16", "24", "-num", "13", "1", };
-#define DEBUG_ARGS
+//const char* ARGV[] = { "", "test/cars.png", "-out", "test/sprt_car_1.h", "-pos", "0", "0", "-size", "13", "11", "-num", "16", "1", "-name", "g_Car1", "-trans", "0xE300E3", "-compress", "cropline16", "-copy", "test/cmsx.txt" };
+//const char* ARGV[] = { "", "test/cars.png", "-out", "test/sprt_car_1.h", "-pos", "0", "0", "-size", "13", "11", "-num", "16", "1", "-name", "g_Car1", "-trans", "0xE300E3", "-compress", "cropline32" };
+//const char* ARGV[] = { "", "test/track_tiles.png", "-out", "test/sprt_track.h", "-pos", "0", "0", "-size", "32", "32", "-num", "8", "4", "-name", "g_TrackTiles", "-trans", "0xDA48AA", "-bpc", "1", "-compress", "crop256", "-dither", "cluster8" };
+//const char* ARGV[] = { "", "test/test_sprt.png", "-out", "test/sprt_player.h", "-pos", "0", "0", "-size", "16", "16", "-num", "11", "8", "-name", "g_PlayerSprite", "-trans", "0x336600", "-bpc", "4", "-pal", "custom", "-compress", "best" };
+//const char* ARGV[] = { "", "test/cmsx_9.png", "-out", "test/cmsx_9.h", "-pos", "0", "0", "-size", "8", "12", "-gap", "0", "4", "-num", "16", "6", "-name", "cmsx_9", "-trans", "0x000000", "-bpc", "1", "-skip", "-font", "8", "8", "!", "_" };
+//const char* ARGV[] = { "", "test/Court.png", "-out", "test/court.h", "-name", "g_Court", "-mode", "g2" };
+//const char* ARGV[] = { "", "test/players16.png", "-out", "test/players16.h", "-mode", "s16", "-pos", "0", "0", "-size", "16", "24", "-num", "13", "1", };
+//const char* ARGV[] = { "", "test/players.png", "-out", "test/players.h", "-mode", "sprt", "-pos", "0", "0", "-size", "16", "32", "-num", "9", "3", "-name", "g_Player1", "-compress", "rlep", "-at", "0x0010",
+//	"-l", "i16", "0", "0",  "1", "1", "0x010101",													// Black 1
+//	"-l", "i16", "0", "0",  "1", "1", "0x010101", "0x5955E0", "0x3AA241", "0xCCCCCC", "0xDB6559",	// Black 2
+//	"-l", "i16", "0", "8",  "1", "1", "0x8076F1", "0x3EB849", "0x5955E0", "0x3AA241",				// Cloth
+//	"-l", "i16", "0", "0",  "1", "1", "0xFFFFFF", "0xCCCCCC",										// White
+//	"-l", "i16", "0", "0",  "1", "1", "0xFF897D", "0xDB6559",										// Skin
+//	"-l", "i8",  "0", "16", "2", "1", "0x010101",													// Black 1
+//	"-l", "i8",  "0", "16", "2", "1", "0x010101", "0x5955E0", "0x3AA241", "0xCCCCCC", "0xDB6559",	// Black 2
+//	"-l", "i8",  "0", "16", "2", "1", "0xFFFFFF", "0xCCCCCC",										// White
+//	"-l", "i8",  "0", "16", "2", "1", "0xFF897D", "0xDB6559" };										// Skin
+//const char* ARGV[] = { "", "test/score.png", "-out", "test/data_score.h", "-mode", "gm2", "-def", "-name", "g_DataScore", "-pos", "0", "0", "-size", "216", "80", "-compress", "rlep",
+//	"-l", "gm2",   "0",  "88", "112", "96",
+//	"-l", "gm2", "112",  "80",  "72", "24",
+//	"-l", "gm2", "184",  "80",  "72", "24",
+//	"-l", "gm2", "112", "104",  "72", "16",
+//	"-l", "gm2", "184", "104",  "72", "16", };
+//#define DEBUG_ARGS
 
 /** Main entry point
 	Usage: CMSXimg inFile -pos x y -size x y -num x y -out outFile -palette [16|256]
@@ -173,172 +208,174 @@ int main(int argc, const char* argv[])
 	// Parse parameters
 	for(i=2; i<argc; i++)
 	{
-		if (_stricmp(argv[i], "-help") == 0) // Display help
+		if (CMSX::StrEqual(argv[i], "-help")) // Display help
 		{
 			PrintHelp();
 			return 0;
 		}
-		else if (_stricmp(argv[i], "-out") == 0) // Output filename
+		else if (CMSX::StrEqual(argv[i], "-out")) // Output filename
 		{
 			param.outFile = argv[++i];
 		}
-		else if (_stricmp(argv[i], "-format") == 0) // Output format
+		else if (CMSX::StrEqual(argv[i], "-format")) // Output format
 		{
 			i++;
-			if (_stricmp(argv[i], "auto") == 0)
+			if (CMSX::StrEqual(argv[i], "auto"))
 				outFormat = FORMAT_Auto;
-			else if (_stricmp(argv[i], "c") == 0)
+			else if (CMSX::StrEqual(argv[i], "c"))
 				outFormat = FORMAT_C;
-			else if (_stricmp(argv[i], "asm") == 0)
+			else if (CMSX::StrEqual(argv[i], "asm"))
 				outFormat = FORMAT_Asm;
-			else if (_stricmp(argv[i], "bin") == 0)
+			else if (CMSX::StrEqual(argv[i], "bin"))
 				outFormat = FORMAT_Bin;
 		}
-		else if(_stricmp(argv[i], "-pos") == 0) // Extract start position
+		else if(CMSX::StrEqual(argv[i], "-pos")) // Extract start position
 		{
 			param.posX = atoi(argv[++i]);
 			param.posY = atoi(argv[++i]);
 		}
-		else if(_stricmp(argv[i], "-size") == 0) // Block size
+		else if(CMSX::StrEqual(argv[i], "-size")) // Block size
 		{
 			param.sizeX = atoi(argv[++i]);
 			param.sizeY = atoi(argv[++i]);
 		}
-		else if (_stricmp(argv[i], "-gap") == 0) // Gap between blocks
+		else if (CMSX::StrEqual(argv[i], "-gap")) // Gap between blocks
 		{
 			param.gapX = atoi(argv[++i]);
 			param.gapY = atoi(argv[++i]);
 		}		
-		else if(_stricmp(argv[i], "-num") == 0) // Column/rows blocks count
+		else if(CMSX::StrEqual(argv[i], "-num")) // Column/rows blocks count
 		{
 			param.numX = atoi(argv[++i]);
 			param.numY = atoi(argv[++i]);
 		}
-		else if (_stricmp(argv[i], "-name") == 0) // Data table name
+		else if (CMSX::StrEqual(argv[i], "-name")) // Data table name
 		{
 			param.tabName = argv[++i];
 		}
-		else if(_stricmp(argv[i], "-bpc") == 0) // Byte per color
+		else if(CMSX::StrEqual(argv[i], "-bpc")) // Byte per color
 		{
 			param.bpc = atoi(argv[++i]);
 		}
-		else if(_stricmp(argv[i], "-trans") == 0) // Use transparency color
+		else if(CMSX::StrEqual(argv[i], "-trans")) // Use transparency color
 		{
 			sscanf_s(argv[++i], "%i", &param.transColor);
 			param.bUseTrans = true;
 		}
-		else if (_stricmp(argv[i], "-opacity") == 0) // Use opacity color
+		else if (CMSX::StrEqual(argv[i], "-opacity")) // Use opacity color
 		{
 			sscanf_s(argv[++i], "%i", &param.opacityColor);
 			param.bUseOpacity = true;
 		}
-		else if (_stricmp(argv[i], "-pal") == 0) // Palette type
+		else if (CMSX::StrEqual(argv[i], "-pal")) // Palette type
 		{
 			i++;
-			if (_stricmp(argv[i], "msx1") == 0)
+			if (CMSX::StrEqual(argv[i], "msx1"))
 				param.palType = PALETTE_MSX1;
-			else if (_stricmp(argv[i], "custom") == 0)
+			else if (CMSX::StrEqual(argv[i], "custom"))
 				param.palType = PALETTE_Custom;
 		}
-		else if (_stricmp(argv[i], "-palcount") == 0) // Palette count
+		else if (CMSX::StrEqual(argv[i], "-palcount")) // Palette count
 		{
 			param.palCount = atoi(argv[++i]);
 		}		
-		else if(_stricmp(argv[i], "-compress") == 0) // Compression method
+		else if(CMSX::StrEqual(argv[i], "-compress")) // Compression method
 		{
 			i++;
-			if (_stricmp(argv[i], "crop16") == 0)
+			if (CMSX::StrEqual(argv[i], "crop16"))
 				param.comp = COMPRESS_Crop16;
-			else if (_stricmp(argv[i], "cropline16") == 0)
+			else if (CMSX::StrEqual(argv[i], "cropline16"))
 				param.comp = COMPRESS_CropLine16;
-			else if (_stricmp(argv[i], "crop32") == 0)
+			else if (CMSX::StrEqual(argv[i], "crop32"))
 				param.comp = COMPRESS_Crop32;
-			else if (_stricmp(argv[i], "cropline32") == 0)
+			else if (CMSX::StrEqual(argv[i], "cropline32"))
 				param.comp = COMPRESS_CropLine32;
-			else if (_stricmp(argv[i], "crop256") == 0)
+			else if (CMSX::StrEqual(argv[i], "crop256"))
 				param.comp = COMPRESS_Crop256;
-			else if (_stricmp(argv[i], "cropline256") == 0)
+			else if (CMSX::StrEqual(argv[i], "cropline256"))
 				param.comp = COMPRESS_CropLine256;
-			else if (_stricmp(argv[i], "rle0") == 0)
+			else if (CMSX::StrEqual(argv[i], "rle0"))
 				param.comp = COMPRESS_RLE0;
-			else if (_stricmp(argv[i], "rle4") == 0)
+			else if (CMSX::StrEqual(argv[i], "rle4"))
 				param.comp = COMPRESS_RLE4;
-			else if (_stricmp(argv[i], "rle8") == 0)
+			else if (CMSX::StrEqual(argv[i], "rle8"))
 				param.comp = COMPRESS_RLE8;
-			else if (_stricmp(argv[i], "auto") == 0)
+			else if (CMSX::StrEqual(argv[i], "rlep"))
+				param.comp = COMPRESS_RLEp;
+			else if (CMSX::StrEqual(argv[i], "auto"))
 				bAutoCompress = true;
-			else if (_stricmp(argv[i], "best") == 0)
+			else if (CMSX::StrEqual(argv[i], "best"))
 				bBestCompress = true;
 			else
 				param.comp = COMPRESS_None;
 		}
-		else if (_stricmp(argv[i], "-dither") == 0) // Dithering method
+		else if (CMSX::StrEqual(argv[i], "-dither")) // Dithering method
 		{
 			i++;
-			if (_stricmp(argv[i], "none") == 0)
+			if (CMSX::StrEqual(argv[i], "none"))
 				param.dither = DITHER_None;
-			else if (_stricmp(argv[i], "floyd") == 0)
+			else if (CMSX::StrEqual(argv[i], "floyd"))
 				param.dither = DITHER_Floyd;
-			else if (_stricmp(argv[i], "bayer4") == 0)
+			else if (CMSX::StrEqual(argv[i], "bayer4"))
 				param.dither = DITHER_Bayer4;
-			else if (_stricmp(argv[i], "bayer8") == 0)
+			else if (CMSX::StrEqual(argv[i], "bayer8"))
 				param.dither = DITHER_Bayer8;
-			else if (_stricmp(argv[i], "bayer16") == 0)
+			else if (CMSX::StrEqual(argv[i], "bayer16"))
 				param.dither = DITHER_Bayer16;
-			else if (_stricmp(argv[i], "cluster6") == 0)
+			else if (CMSX::StrEqual(argv[i], "cluster6"))
 				param.dither = DITHER_Cluster6;
-			else if (_stricmp(argv[i], "cluster8") == 0)
+			else if (CMSX::StrEqual(argv[i], "cluster8"))
 				param.dither = DITHER_Cluster8;
-			else if (_stricmp(argv[i], "cluster16") == 0)
+			else if (CMSX::StrEqual(argv[i], "cluster16"))
 				param.dither = DITHER_Cluster16;
 		}
-		else if(_stricmp(argv[i], "-data") == 0) // Text data format
+		else if(CMSX::StrEqual(argv[i], "-data")) // Text data format
 		{
 			i++;
-			if(_stricmp(argv[i], "dec") == 0)
+			if(CMSX::StrEqual(argv[i], "dec"))
 				param.format = DATA_Decimal;
-			else if(_stricmp(argv[i], "hexa") == 0)
+			else if(CMSX::StrEqual(argv[i], "hexa"))
 				param.format = DATA_Hexa;
-			else if(_stricmp(argv[i], "hexa0x") == 0)
+			else if(CMSX::StrEqual(argv[i], "hexa0x"))
 				param.format = DATA_HexaC;
-			else if(_stricmp(argv[i], "hexaH") == 0)
+			else if(CMSX::StrEqual(argv[i], "hexaH"))
 				param.format = DATA_HexaASM;
-			else if(_stricmp(argv[i], "hexa$") == 0)
+			else if(CMSX::StrEqual(argv[i], "hexa$"))
 				param.format = DATA_HexaPascal;
-			else if (_stricmp(argv[i], "hexa&H") == 0)
+			else if (CMSX::StrEqual(argv[i], "hexa&H"))
 				param.format = DATA_HexaBasic;
-			else if (_stricmp(argv[i], "hexa&") == 0)
+			else if (CMSX::StrEqual(argv[i], "hexa&"))
 				param.format = DATA_HexaAnd;
-			else if (_stricmp(argv[i], "hexa#") == 0)
+			else if (CMSX::StrEqual(argv[i], "hexa#"))
 				param.format = DATA_HexaSharp;
-			else if(_stricmp(argv[i], "bin") == 0)
+			else if(CMSX::StrEqual(argv[i], "bin"))
 				param.format = DATA_Binary;
-			else if (_stricmp(argv[i], "bin0b") == 0)
+			else if (CMSX::StrEqual(argv[i], "bin0b"))
 				param.format = DATA_BinaryC;
-			else if (_stricmp(argv[i], "binB") == 0)
+			else if (CMSX::StrEqual(argv[i], "binB"))
 				param.format = DATA_BinaryASM;
 		}
-		else if (_stricmp(argv[i], "-mode") == 0) // Exporter mode
+		else if (CMSX::StrEqual(argv[i], "-mode")) // Exporter mode
 		{
 			i++;
-			if (_stricmp(argv[i], "bmp") == 0)
+			if (CMSX::StrEqual(argv[i], "bmp"))
 				param.mode = MODE_Bitmap;
-			else if (_stricmp(argv[i], "gm1") == 0)
+			else if (CMSX::StrEqual(argv[i], "gm1"))
 				param.mode = MODE_GM1;
-			else if (_stricmp(argv[i], "gm2") == 0)
+			else if (CMSX::StrEqual(argv[i], "gm2"))
 				param.mode = MODE_GM2;
-			else if (_stricmp(argv[i], "s16") == 0)
-				param.mode = MODE_Sprite16;
+			else if (CMSX::StrEqual(argv[i], "sprt"))
+				param.mode = MODE_Sprite;
 		}
-		else if (_stricmp(argv[i], "-skip") == 0) // Skip empty blocks
+		else if (CMSX::StrEqual(argv[i], "-skip")) // Skip empty blocks
 		{
 			param.bSkipEmpty = true;
 		}
-		else if (_stricmp(argv[i], "-idx") == 0) // Index table
+		else if (CMSX::StrEqual(argv[i], "-idx")) // Index table
 		{
 			param.bAddIndex = true;
 		}
-		else if (_stricmp(argv[i], "-copy") == 0) // Copyright file
+		else if (CMSX::StrEqual(argv[i], "-copy")) // Copyright file
 		{
 			param.bAddCopy = true;
 			if ((i < argc - 1) && *argv[i + 1] != '-')
@@ -350,11 +387,11 @@ int main(int argc, const char* argv[])
 				param.copyFile = RemoveExt(param.inFile) + ".txt";
 			}
 		}
-		else if (_stricmp(argv[i], "-head") == 0) // Add export data header
+		else if (CMSX::StrEqual(argv[i], "-head")) // Add export data header
 		{
 			param.bAddHeader = true;
 		}
-		else if (_stricmp(argv[i], "-font") == 0) // Add font data header
+		else if (CMSX::StrEqual(argv[i], "-font")) // Add font data header
 		{
 			param.bAddFont = true;
 			param.fontX = atoi(argv[++i]);
@@ -370,15 +407,67 @@ int main(int argc, const char* argv[])
 			else
 				param.fontLast = *argv[i];
 		}
-		else if (_stricmp(argv[i], "-def") == 0) // Add C define
+		else if (CMSX::StrEqual(argv[i], "-at")) // Starting address
+		{
+			param.bStartAddr = true;
+			i++;
+			sscanf_s(argv[i], "%i", &param.startAddr);
+		}
+		else if (CMSX::StrEqual(argv[i], "-def")) // Add C define
 		{
 			param.bDefine= true;
 		}
-		else if (_stricmp(argv[i], "-notitle") == 0) // Remove title
+		else if (CMSX::StrEqual(argv[i], "-offset")) // Offset
+		{
+			param.offset = atoi(argv[++i]);
+		}
+		else if (CMSX::StrEqual(argv[i], "-notitle")) // Remove title
 		{
 			param.bTitle = false;
 		}
-		
+		else if (CMSX::StrEqual(argv[i], "-l")) // Block layers
+		{
+			Layer l;
+			i++;
+			if (CMSX::StrEqual(argv[i], "i8"))
+			{
+				l.size16 = false;
+				l.include = true;
+			}
+			else if (CMSX::StrEqual(argv[i], "i16"))
+			{
+				l.size16 = true;
+				l.include = true;
+			}
+			else if (CMSX::StrEqual(argv[i], "e8"))
+			{
+				l.size16 = false;
+				l.include = false;
+			}
+			else if (CMSX::StrEqual(argv[i], "e16"))
+			{
+				l.size16 = true;
+				l.include = false;
+			}
+			l.posX = atoi(argv[++i]);
+			l.posY = atoi(argv[++i]);
+			l.numX = atoi(argv[++i]);
+			l.numY = atoi(argv[++i]);
+			while((i < argc - 1) && (argv[i+1][0] != '-'))
+			{
+				u32 c24;
+				sscanf_s(argv[++i], "%i", &c24);
+				l.colors.push_back(c24);
+			}
+			if (l.colors.size() == 0)
+			{
+				if (l.include)
+					l.colors.push_back(0xFFFFFF);
+				else // LAYER_Exclude
+					l.colors.push_back(0x000000);
+			}
+			param.layers.push_back(l);
+		}
 	}
 
 	//-------------------------------------------------------------------------
@@ -567,6 +656,7 @@ int main(int argc, const char* argv[])
 	}
 
 	bool bSucceed = false;
+	u32 size = 0;
 
 	//-------------------------------------------------------------------------
 	// Convert
@@ -576,18 +666,21 @@ int main(int argc, const char* argv[])
 		{
 			ExporterInterface* exp = new ExporterC(param.format, &param);
 			bSucceed = ParseImage(&param, exp);
+			size = exp->GetTotalBytes();
 			delete exp;
 		}
 		else if((outFormat == FORMAT_Asm) || ((outFormat == FORMAT_Auto) && (HaveExt(param.outFile, ".s") || HaveExt(param.outFile, ".asm"))))
 		{
 			ExporterInterface* exp = new ExporterASM(param.format, &param);
 			bSucceed = ParseImage(&param, exp);
+			size = exp->GetTotalBytes();
 			delete exp;
 		}
 		else if((outFormat == FORMAT_Bin) || ((outFormat == FORMAT_Auto) && (HaveExt(param.outFile, ".bin") || HaveExt(param.outFile, ".raw"))))
 		{
 			ExporterInterface* exp = new ExporterBin(param.format, &param);
 			bSucceed = ParseImage(&param, exp);
+			size = exp->GetTotalBytes();
 			delete exp;
 		}
 		else
@@ -600,6 +693,7 @@ int main(int argc, const char* argv[])
 			else
 			{
 				bSucceed = SaveImage(dib, param.outFile.c_str()); // save the file
+				size = FreeImage_GetDIBSize(dib);
 				FreeImage_Unload(dib); // free the dib
 			}
 		}
@@ -610,6 +704,7 @@ int main(int argc, const char* argv[])
 		printf("Succeed!\n");
 	else
 		printf("Error: Fatal error!\n");
-	return bSucceed ? 0 : 1;
+
+	return bSucceed ? param.startAddr + size : 0;
 }
 

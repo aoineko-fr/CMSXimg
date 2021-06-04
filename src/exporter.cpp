@@ -26,6 +26,7 @@ const char* GetCompressorName(CMSXi_Compressor comp, bool bShort)
 	case COMPRESS_RLE0:        return bShort ? "RLE0" :        "RLE0 (7-bits Run-length encoding for transparency)";
 	case COMPRESS_RLE4:        return bShort ? "RLE4" :        "RLE4 (4-bits Run-length encoding)";
 	case COMPRESS_RLE8:        return bShort ? "RLE8" :        "RLE8 (8-bits Run-length encoding)";
+	case COMPRESS_RLEp:        return bShort ? "RLEp" :        "RLEp (6-bits Pattern based RLE)";
 	}
 	return "Unknow";
 }
@@ -38,7 +39,7 @@ const char* GetModeName(CMSXi_Mode mode)
 	case MODE_Bitmap:	return "Bitmap";
 	case MODE_GM1:		return "Graphic Mode 1";
 	case MODE_GM2:		return "Graphic Mode 2";
-	case MODE_Sprite16:	return "Sprite 16x16";
+	case MODE_Sprite:	return "Sprite";
 	};
 	return "Unknow";
 }

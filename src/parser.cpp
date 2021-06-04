@@ -772,6 +772,58 @@ void ValidateChunk(Chunk& chunk)
 	}
 }
 
+///
+void ExportRLEp(ExportParameters* param, ExporterInterface* exp, const std::vector<u8>& data)
+{
+	u32 chunk = 0;
+	for(u32 i = 0; i < data.size(); i++)
+	{
+		u8 key = data[i];
+		u8 len = 1;
+		while ((i + 1 < data.size()) && (data[i + 1] == key))
+		{
+			len++;
+			i++;
+		}
+		if (len > 1)  // Repeating patterns
+		{
+			u8 type = (key == 0) ? 0 : 1;
+			exp->WriteCommentLine(CMSX::Format("Chunk[%i]", chunk++));
+			exp->Write1ByteLine((type << 6) | len, CMSX::Format("Type=%i, Length=%i", type, len));
+			if (type == 1)
+			{
+				exp->WriteLineBegin();
+				exp->Write8BitsData(key);
+				exp->WriteLineEnd();
+			}
+		}
+		else // Uncompressed data
+		{
+			u8 type = 3;
+			std::vector<u8> block;
+			block.push_back(key);
+			while ((i + 2 < data.size()) && (data[i + 1] != key) && (data[i + 2] != data[i + 1]))
+			{
+				key = data[i + 1];
+				block.push_back(key);
+				len++;
+				i++;
+			}
+			exp->WriteCommentLine(CMSX::Format("Chunk[%i]", chunk++));
+			exp->Write1ByteLine((type << 6) | len, CMSX::Format("Type=%i, Length=%i", type, len));
+			for(u32 j = 0; j < block.size(); j++)
+			{
+				exp->WriteLineBegin();
+				exp->Write8BitsData(block[j]);
+				exp->WriteLineEnd();
+			}
+		}
+
+	}
+	exp->WriteCommentLine("Zero terminator");
+	exp->Write1ByteLine(0x00, "");
+}
+
 /***/
 bool ExportGM2(ExportParameters* param, ExporterInterface* exp)
 {
@@ -810,105 +862,149 @@ bool ExportGM2(ExportParameters* param, ExporterInterface* exp)
 	if ((param->posY + param->sizeY) > imageY)
 		param->sizeY = imageY - param->posY;
 
-	param->numX = param->sizeX / 8;
-	param->numY = param->sizeY / 8;
+	// Convert default extract param into a layer
+	{
+		Layer l;
+		l.posX = param->posX;
+		l.posY = param->posY;
+		l.numX = param->sizeX;
+		l.numY = param->sizeY;
+		param->layers.insert(param->layers.begin(), l);
+	}
 
 	// File header
 	exp->WriteHeader();
 
-	//-------------------------------------------------------------------------
-	// NAMES TABLE
-
-	exp->WriteTableBegin(TABLE_U8, param->tabName + "_Names", "Names Table");
-
-	// Parse image
-	for (i32 ny = 0; ny < param->numY; ny++)
+	for (u32 l = 0; l < param->layers.size(); l++)
 	{
-		exp->WriteLineBegin();
-		for (i32 nx = 0; nx < param->numX; nx++)
+		Layer* layer = &param->layers[l];
+
+		//-------------------------------------------------------------------------
+		// NAMES TABLE
+
+		if(l == 0) // Default
+			exp->WriteTableBegin(TABLE_U8, param->tabName + "_Names", "Names Table");
+		else
+			exp->WriteTableBegin(TABLE_U8, CMSX::Format("%sL%i_Names", param->tabName.c_str(), l), "Names Table");
+
+		u32 numX = layer->numX / 8;
+		u32 numY = layer->numY / 8;
+
+		// Parse image
+		for (u32 ny = 0; ny < numY; ny++)
 		{
-			Chunk chunk;
-
-			// Generate chunk
-			for (i32 j= 0; j < 8; j++)
+			exp->WriteLineBegin();
+			for (u32 nx = 0; nx < numX; nx++)
 			{
-				u8 pattern = 0;
-				std::vector<u8> colors;
-				for (i32 i = 0; i < 8; i++)
+				Chunk chunk;
+
+				// Generate chunk
+				for (i32 j = 0; j < 8; j++)
 				{
-					i32 idx = param->posX + i + (nx * 8) + ((param->posY + j + (ny * 8)) * imageX);
-					u32 c24 = 0xFFFFFF & ((u32*)bits)[idx];
-					u8 c4 = GetNearestColorIndex(c24, PaletteMSX, 16);
-					if (colors.empty()) // special case: first color
+					u8 pattern = 0;
+					std::vector<u8> colors;
+					for (i32 i = 0; i < 8; i++)
 					{
-						colors.push_back(c4);
-					}
-					else if((colors.size() == 1) && (c4 != colors[0])) // special case: second color
-					{
-						colors.push_back(c4);
-					}
+						i32 idx = layer->posX + i + (nx * 8) + ((layer->posY + j + (ny * 8)) * imageX);
+						u32 c24 = 0xFFFFFF & ((u32*)bits)[idx];
+						u8 c4 = GetNearestColorIndex(c24, PaletteMSX, 16);
+						if (colors.empty()) // special case: first color
+						{
+							colors.push_back(c4);
+						}
+						else if ((colors.size() == 1) && (c4 != colors[0])) // special case: second color
+						{
+							colors.push_back(c4);
+						}
 
-					if (c4 == colors[0])
-						continue;
-					else if (c4 == colors[1])
-						pattern |= 1 << (7 - i);
-					else
-						printf("Warning: More than 2 colors on a 8 pixels line (%i, %i)\n", param->posX + i + (nx * param->sizeX), param->posY + j + (ny * param->sizeY));
+						if (c4 == colors[0])
+							continue;
+						else if (c4 == colors[1])
+							pattern |= 1 << (7 - i);
+						else
+							printf("Warning: More than 2 colors on a 8 pixels line (%i, %i)\n", layer->posX + i + (nx * 8), layer->posY + j + (ny * 8));
+					}
+					if (colors.size() == 1)
+						colors.push_back(colors[0]);
+
+					chunk.Pattern[j] = pattern;
+					chunk.Color[j] = (colors[1] << 4) + colors[0];
 				}
-				if (colors.size() == 1)
-					colors.push_back(colors[0]);
 
-				chunk.Pattern[j] = pattern;
-				chunk.Color[j] = (colors[1] << 4) + colors[0];
+				u8 patIdx = GetChunkId(chunkList, chunk);
+				exp->Write1ByteData(patIdx + param->offset);
 			}
-
-			u8 patIdx = GetChunkId(chunkList, chunk);
-			exp->Write1ByteData(patIdx);
+			exp->WriteLineEnd();
 		}
-		exp->WriteLineEnd();
+		exp->WriteTableEnd("");
 	}
 	i32 namesSize = exp->GetTotalBytes();
-	exp->WriteTableEnd(CMSX_Format("Names size: %i Bytes", namesSize));
+	exp->WriteCommentLine(CMSX::Format("Names size: %i Bytes", namesSize));
 
 	delete bits;
 
+	//for (i32 i = 0; i < (i32)chunkList.size(); i++)
+	//	ValidateChunk(chunkList[i]);
+
 	//-------------------------------------------------------------------------
-	// PATERNS TABLE
+	// PATTERNS TABLE
 
 	exp->WriteTableBegin(TABLE_U8, param->tabName + "_Patterns", "Patterns Table");
-	for (i32 i = 0; i < (i32)chunkList.size(); i++)
+	if (param->comp == COMPRESS_RLEp)
 	{
-		// Print sprite header
-		exp->WriteSpriteHeader(i);
-		for (i32 j = 0; j < 8; j++)
+		std::vector<u8> bytes;
+		for (i32 i = 0; i < (i32)chunkList.size(); i++)
+			for (i32 j = 0; j < 8; j++)
+				bytes.push_back(chunkList[i].Pattern[j]);
+		ExportRLEp(param, exp, bytes);
+	}
+	else
+	{
+		for (i32 i = 0; i < (i32)chunkList.size(); i++)
 		{
-			exp->WriteLineBegin();
-			exp->Write8BitsData(chunkList[i].Pattern[j]);
-			exp->WriteLineEnd();
+			// Print sprite header
+			exp->WriteSpriteHeader(i + param->offset);
+			for (i32 j = 0; j < 8; j++)
+			{
+				exp->WriteLineBegin();
+				exp->Write8BitsData(chunkList[i].Pattern[j]);
+				exp->WriteLineEnd();
+			}
 		}
 	}
 	i32 patternsSize = exp->GetTotalBytes() - namesSize;
-	exp->WriteTableEnd(CMSX_Format("Patterns size: %i Bytes", patternsSize));
+	exp->WriteTableEnd(CMSX::Format("Patterns size: %i Bytes", patternsSize));
 
 	//-------------------------------------------------------------------------
 	// COLORS TABLE
 
 	exp->WriteTableBegin(TABLE_U8, param->tabName + "_Colors", "Colors Table");
-	for (i32 i = 0; i < (i32)chunkList.size(); i++)
+	if (param->comp == COMPRESS_RLEp)
 	{
-		// Print sprite header
-		exp->WriteSpriteHeader(i);
-		exp->WriteLineBegin();
-		for (i32 j = 0; j < 8; j++)
+		std::vector<u8> bytes;
+		for (i32 i = 0; i < (i32)chunkList.size(); i++)
+			for (i32 j = 0; j < 8; j++)
+				bytes.push_back(chunkList[i].Color[j]);
+		ExportRLEp(param, exp, bytes);
+	}
+	else
+	{
+		for (i32 i = 0; i < (i32)chunkList.size(); i++)
 		{
-			exp->Write1ByteData(chunkList[i].Color[j]);
+			// Print sprite header
+			exp->WriteSpriteHeader(i + param->offset);
+			exp->WriteLineBegin();
+			for (i32 j = 0; j < 8; j++)
+			{
+				exp->Write1ByteData(chunkList[i].Color[j]);
+			}
+			exp->WriteLineEnd();
 		}
-		exp->WriteLineEnd();
 	}
 	i32 colorsSize = exp->GetTotalBytes() - namesSize - patternsSize;
-	exp->WriteTableEnd(CMSX_Format("Colors size: %i Bytes", colorsSize));
+	exp->WriteTableEnd(CMSX::Format("Colors size: %i Bytes", colorsSize));
 	exp->WriteLineEnd();
-	exp->WriteCommentLine(CMSX_Format("Total size: %i Bytes", exp->GetTotalBytes()));
+	exp->WriteCommentLine(CMSX::Format("Total size: %i Bytes", exp->GetTotalBytes()));
 
 	//-------------------------------------------------------------------------
 	// Write file
@@ -918,13 +1014,172 @@ bool ExportGM2(ExportParameters* param, ExporterInterface* exp)
 }
 
 //-----------------------------------------------------------------------------
-// EXPORT 16x16 SPRITES
+// EXPORT SPRITES
 //-----------------------------------------------------------------------------
 
-/***/
-bool ExportSprite16(ExportParameters* param, ExporterInterface* exp)
+/// Convert color to binary value according to layer configuration
+i32 ColorToBinary(Layer& layer, u32 c24)
 {
-	return false;
+	std::vector<u32>::iterator it;
+
+	it = std::find(layer.colors.begin(), layer.colors.end(), c24);
+
+	if (layer.include)
+	{
+		return (it != layer.colors.end()) ? 1 : 0;
+	}
+	else // if (layer.mode & LAYER_Exclude)
+	{
+		return (it == layer.colors.end()) ? 1 : 0;
+	}
+}
+
+/// Export a 8x8 sprite data (1-bit per point)
+void ExportSpriteData(ExportParameters* param, ExporterInterface* exp, Layer& layer, i32 sid, i32 x, i32 y, BYTE* bits, i32 imageX, i32 imageY, std::vector<u8> &rawData)
+{
+	if (param->comp != COMPRESS_RLEp)
+	{
+		exp->WriteSpriteHeader(sid);
+	}
+
+	for (i32 j = 0; j < 8; j++)
+	{
+		u8 byte = 0;
+		if (((y + j) >= 0) || ((y + j) < imageY))
+		{
+			for (i32 i = 0; i < 8; i++)
+			{
+				if (((x + i) >= 0) || ((x + i) < imageX))
+				{
+					i32 idx = (x + i) + ((y + j) * imageX);
+					u32 c24 = 0xFFFFFF & ((u32*)bits)[idx];
+					if (ColorToBinary(layer, c24))
+						byte |= 1 << (7 - i);
+				}
+			}
+		}
+		if (param->comp == COMPRESS_RLEp)
+		{
+			rawData.push_back(byte);
+		}
+		else
+		{
+			exp->WriteLineBegin();
+			exp->Write8BitsData(byte);
+			exp->WriteLineEnd();
+		}
+	}
+}
+
+/***/
+bool ExportSprite(ExportParameters* param, ExporterInterface* exp)
+{
+	FIBITMAP* dib, * dib32;
+	u32 sid = 0; // sprite id
+	std::vector<u8> rawData;
+
+	//-------------------------------------------------------------------------
+	// Prepare image
+
+	dib = LoadImage(param->inFile.c_str()); // open and load the file using the default load option
+	if (dib == NULL)
+	{
+		printf("Error: Fail to load %s\n", param->inFile.c_str());
+		return false;
+	}
+
+	// Get 32 bits raw datas
+	dib32 = FreeImage_ConvertTo32Bits(dib);
+	FreeImage_Unload(dib); // free the original dib
+	i32 imageX = FreeImage_GetWidth(dib32);
+	i32 imageY = FreeImage_GetHeight(dib32);
+	i32 scanWidth = FreeImage_GetPitch(dib32);
+	i32 bpp = FreeImage_GetBPP(dib32);
+	BYTE* bits = new BYTE[scanWidth * imageY];
+	FreeImage_ConvertToRawBits(bits, dib32, scanWidth, 32, FI_RGBA_RED_MASK, FI_RGBA_GREEN_MASK, FI_RGBA_BLUE_MASK, TRUE);
+	FreeImage_Unload(dib32);
+
+	if (param->layers.size() == 0)
+	{
+		Layer l;
+		l.size16 = false;
+		l.include = false;
+		l.posX = 0;
+		l.posY = 0;
+		l.numX = (param->sizeX + 7) / 8;
+		l.numY = (param->sizeY + 7) / 8;
+		l.colors.push_back(param->transColor);
+		param->layers.push_back(l);
+	}
+
+	// File header
+	exp->WriteHeader();
+
+	//-------------------------------------------------------------------------
+	// NAMES TABLE
+
+	exp->WriteTableBegin(TABLE_U8, param->tabName, "Sprites table");
+
+	// Parse image
+	for (i32 ny = 0; ny < param->numY; ny++)
+	{
+		for (i32 nx = 0; nx < param->numX; nx++)
+		{
+			if (param->comp != COMPRESS_RLEp)
+				exp->WriteCommentLine(CMSX::Format("======== Frame[%i]", nx + ny * param->numX));
+
+			for (i32 l = 0; l < (i32)param->layers.size(); l++)
+			{
+				Layer& layer = param->layers[l];
+
+				if (param->comp != COMPRESS_RLEp)
+					exp->WriteCommentLine(CMSX::Format("---- Layer[%i] (%s %i,%i %i,%i %s %i)", l, layer.size16 ? "16x16" : "8x8", layer.posX, layer.posY, layer.numX, layer.numY, layer.include ? "inc" : "dec", layer.colors.size()));
+
+				for (u32 j = 0; j < layer.numY; j++)
+				{
+					for (u32 i = 0; i < layer.numX; i++)
+					{
+						if (layer.size16)
+						{
+							i32 x = param->posX + (nx * (param->sizeX + param->gapX)) + layer.posX + i * 16;
+							i32 y = param->posY + (ny * (param->sizeY + param->gapY)) + layer.posY + j * 16;
+							ExportSpriteData(param, exp, layer, sid++, x, y, bits, imageX, imageY, rawData);
+							y += 8;
+							ExportSpriteData(param, exp, layer, sid++, x, y, bits, imageX, imageY, rawData);
+							y -= 8;
+							x += 8;
+							ExportSpriteData(param, exp, layer, sid++, x, y, bits, imageX, imageY, rawData);
+							y += 8;
+							ExportSpriteData(param, exp, layer, sid++, x, y, bits, imageX, imageY, rawData);
+						}
+						else // if (layer.mode & LAYER_8x8)
+						{
+							i32 x = param->posX + (nx * (param->sizeX + param->gapX)) + layer.posX + i * 8;
+							i32 y = param->posY + (ny * (param->sizeY + param->gapY)) + layer.posY + j * 8;
+							ExportSpriteData(param, exp, layer, sid++, x, y, bits, imageX, imageY, rawData);
+						}
+					}
+				}
+
+			}
+		}
+	}
+
+	if (param->comp == COMPRESS_RLEp)
+	{
+		ExportRLEp(param, exp, rawData);
+	}
+
+	i32 namesSize = exp->GetTotalBytes();
+	exp->WriteTableEnd(CMSX::Format("Names size: %i Bytes", namesSize));
+
+	delete bits;
+
+	//-------------------------------------------------------------------------
+	// Write file
+	bool bSaved = exp->Export();
+
+	return bSaved;
 }
 
 //-----------------------------------------------------------------------------
@@ -940,6 +1195,6 @@ bool ParseImage(ExportParameters* param, ExporterInterface* exp)
 	case MODE_Bitmap:	return ExportBitmap(param, exp);
 	case MODE_GM1:		return ExportGM1(param, exp);
 	case MODE_GM2:		return ExportGM2(param, exp);
-	case MODE_Sprite16:	return ExportSprite16(param, exp);
+	case MODE_Sprite:	return ExportSprite(param, exp);
 	};
 }

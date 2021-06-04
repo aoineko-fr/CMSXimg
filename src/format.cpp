@@ -18,7 +18,7 @@
 /*
 #define BUFFER_SIZE 1024
 
-std::string CMSX_Format(const char* fmt, ...)
+std::string CMSX::Format(const char* fmt, ...)
 {
 	char buf[BUFFER_SIZE];
 

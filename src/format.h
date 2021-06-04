@@ -12,4 +12,4 @@
 // std
 #include <string>
 
-//std::string CMSX_Format(const char* fmt, ...);
+//std::string CMSX::Format(const char* fmt, ...);
