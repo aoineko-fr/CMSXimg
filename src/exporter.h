@@ -76,8 +76,9 @@ struct ExportParameters
 	u32 opacityColor;			///< Opacity color (24-bits RGB)
 	PaletteType palType;		///< Palette type (@see PaletteType)
 	i32 palCount;				///< Number of colors in the palette
+	i32 palOffset;				///< Index offset of the palette
 	CMSXi_Compressor comp;		///< Compressor to use (@see CMSXi_Compressor)
-	CMSX_DataFormat format;		///< Data format to use for text export (@see CMSX_DataFormat)
+	CMSX::DataFormat format;	///< Data format to use for text export (@see CMSX_DataFormat)
 	bool bSkipEmpty;			///< Skip empty block (be aware this option change the block index)
 	DitheringMethod dither;		///< The dithering method to use (only for 1-bit BPC)
 	bool bAddCopy;				///< Add copyright information from file
@@ -95,6 +96,8 @@ struct ExportParameters
 	bool bDefine;				///< Add define block for C file that allow to add directive to table definition (to place data at a given address for e.g.)
 	bool bTitle;				///< Display ASCII-art title on top of exported text file
 	std::vector<Layer> layers;	///< Block layers
+	bool bGM2CompressNames;		///< GM2 mode: Compress names/layout table
+	bool bGM2Unique;			///< GM2 mode: Export all unique tiles
 
 	ExportParameters()
 	{
@@ -117,8 +120,9 @@ struct ExportParameters
 		opacityColor = 0x000000;
 		palType = PALETTE_MSX1;
 		palCount = -1;
+		palOffset = 1;
 		comp = COMPRESS_None;
-		format = DATA_Hexa;
+		format = CMSX::DATAFORMAT_Hexa;
 		bSkipEmpty = false;
 		dither = DITHER_None;
 		bAddCopy = false;
@@ -135,6 +139,8 @@ struct ExportParameters
 		bStartAddr = false;
 		startAddr = 0;
 		bTitle = true;
+		bGM2CompressNames = false;
+		bGM2Unique = false;
 	}
 };
 
@@ -156,12 +162,12 @@ bool IsCompressorCompatible(CMSXi_Compressor comp, const ExportParameters& param
 class ExporterInterface
 {
 protected:
-	CMSX_DataFormat eFormat;
+	CMSX::DataFormat eFormat;
 	ExportParameters* Param;
 	u32 TotalBytes;
 
 public:
-	ExporterInterface(CMSX_DataFormat f, ExportParameters* p): eFormat(f), Param(p), TotalBytes(0) {}
+	ExporterInterface(CMSX::DataFormat f, ExportParameters* p): eFormat(f), Param(p), TotalBytes(0) {}
 	virtual void WriteHeader() = 0;
 	virtual void WriteTableBegin(TableFormat format, std::string name, std::string comment) = 0;
 	virtual void WriteSpriteHeader(i32 number) = 0;
@@ -194,7 +200,7 @@ protected:
 	std::string outData;
 
 public:
-	ExporterText(CMSX_DataFormat f, ExportParameters* p) : ExporterInterface(f, p) {}
+	ExporterText(CMSX::DataFormat f, ExportParameters* p) : ExporterInterface(f, p) {}
 	virtual void WriteHeader()
 	{
 		// Add title
@@ -269,7 +275,7 @@ public:
 
 	virtual const c8* GetNumberFormat(u8 bytes = 1)
 	{
-		return CMSX_GetDataFormat(eFormat, bytes);
+		return CMSX::GetDataFormat(eFormat, bytes);
 	}
 
 	virtual bool Export()
@@ -293,7 +299,7 @@ public:
 class ExporterC: public ExporterText
 {
 public:
-	ExporterC(CMSX_DataFormat f, ExportParameters* p): ExporterText(f, p) {}
+	ExporterC(CMSX::DataFormat f, ExportParameters* p): ExporterText(f, p) {}
 
 	virtual void WriteTableBegin(TableFormat format, std::string name, std::string comment)
 	{
@@ -442,7 +448,7 @@ public:
 class ExporterASM: public ExporterText
 {
 public:
-	ExporterASM(CMSX_DataFormat f, ExportParameters* p): ExporterText(f, p) {}
+	ExporterASM(CMSX::DataFormat f, ExportParameters* p) : ExporterText(f, p) {}
 
 	virtual void WriteTableBegin(TableFormat format, std::string name, std::string comment)
 	{
@@ -559,7 +565,7 @@ protected:
 	std::vector<u8> outData;
 
 public:
-	ExporterBin(CMSX_DataFormat f, ExportParameters* p) : ExporterInterface(f, p) {}
+	ExporterBin(CMSX::DataFormat f, ExportParameters* p) : ExporterInterface(f, p) {}
 	virtual void WriteHeader() {}
 	virtual void WriteTableBegin(TableFormat format, std::string name, std::string comment) {}
 	virtual void WriteSpriteHeader(i32 number) {}
@@ -635,7 +641,7 @@ public:
 class ExporterDummy : public ExporterInterface
 {
 public:
-	ExporterDummy(CMSX_DataFormat f, ExportParameters* p) : ExporterInterface(f, p) {}
+	ExporterDummy(CMSX::DataFormat f, ExportParameters* p) : ExporterInterface(f, p) {}
 	virtual void WriteHeader() {}
 	virtual void WriteTableBegin(TableFormat format, std::string name, std::string comment) {}
 	virtual void WriteSpriteHeader(i32 number) {}

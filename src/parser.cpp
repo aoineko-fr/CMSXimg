@@ -37,14 +37,14 @@ struct RLEHash
 //-----------------------------------------------------------------------------
 
 /***/
-u8 GetNearestColorIndex(u32 color, u32* pal, i32 count)
+u8 GetNearestColorIndex(u32 color, u32* pal, i32 count, i32 offset)
 {
 	u8 bestIndex = 0;
 	i32 bestWeight = 256 * 4;
 
 	RGB24 c = RGB24(color);
 
-	for (u8 i = 1; i <= count + 1; i++)
+	for (i32 i = offset; i <= count + 1; i++)
 	{
 		RGB24 p = RGB24(pal[i]);
 
@@ -52,7 +52,7 @@ u8 GetNearestColorIndex(u32 color, u32* pal, i32 count)
 		if (weight < bestWeight)
 		{
 			bestWeight = weight;
-			bestIndex = i;
+			bestIndex = (u8)i;
 		}
 	}
 
@@ -134,9 +134,11 @@ bool ExportBitmap(ExportParameters * param, ExporterInterface * exp)
 		if(dib4 == NULL)
 			dib4 = FreeImage_ColorQuantizeEx(dib32, FIQ_WUQUANT, param->palCount, 3, defaultPal); // Else, use Efficient Statistical Computations for Optimal Color Quantization
 		RGBQUAD* pal = FreeImage_GetPalette(dib4);
-		customPalette[0] = 0;
+		
+		for (i32 c = 0; c < param->palOffset; c++)
+			customPalette[c] = 0;
 		for (i32 c = 0; c < param->palCount; c++)
-			customPalette[c + 1] = ((u32*)pal)[c];
+			customPalette[c + param->palOffset] = ((u32*)pal)[c];
 		FreeImage_Unload(dib4);
 	}
 	else if ((param->bpc == 2) && (param->palType == PALETTE_Custom))
@@ -150,9 +152,10 @@ bool ExportBitmap(ExportParameters * param, ExporterInterface * exp)
 		if (dib2 == NULL)
 			dib2 = FreeImage_ColorQuantizeEx(dib32, FIQ_WUQUANT, param->palCount, 3, defaultPal); // Else, use Efficient Statistical Computations for Optimal Color Quantization
 		RGBQUAD* pal = FreeImage_GetPalette(dib2);
-		customPalette[0] = 0;
+		for (i32 c = 0; c < param->palOffset; c++)
+			customPalette[c] = 0;
 		for (i32 c = 0; c < param->palCount; c++)
-			customPalette[c + 1] = ((u32*)pal)[c];
+			customPalette[c + param->palOffset] = ((u32*)pal)[c];
 		FreeImage_Unload(dib2);
 	}
 	// Apply dithering for 2 color mode
@@ -308,9 +311,9 @@ bool ExportBitmap(ExportParameters * param, ExporterInterface * exp)
 									u32 rgb = hashTable[k].color;
 									u32* pal = (param->palType == PALETTE_MSX1) ? PaletteMSX : customPalette;
 									if (param->bUseTrans)
-										c4 = (rgb == transRGB) ? 0x0 : GetNearestColorIndex(rgb, pal, param->palCount);
+										c4 = (rgb == transRGB) ? 0x0 : GetNearestColorIndex(rgb, pal, param->palCount, param->palOffset);
 									else
-										c4 = GetNearestColorIndex(rgb, pal, param->palCount);
+										c4 = GetNearestColorIndex(rgb, pal, param->palCount, param->palOffset);
 									if (l & 0x1)
 										byte |= c4; // Second pixel use lower bits
 									else
@@ -339,9 +342,9 @@ bool ExportBitmap(ExportParameters * param, ExporterInterface * exp)
 							u32 rgb = hashTable[k].color;
 							u32* pal = (param->palType == PALETTE_MSX1) ? PaletteMSX : customPalette;
 							if (param->bUseTrans)
-								c4 = (rgb == transRGB) ? 0x0 : GetNearestColorIndex(rgb, pal, param->palCount);
+								c4 = (rgb == transRGB) ? 0x0 : GetNearestColorIndex(rgb, pal, param->palCount, param->palOffset);
 							else
-								c4 = GetNearestColorIndex(rgb, pal, param->palCount);
+								c4 = GetNearestColorIndex(rgb, pal, param->palCount, param->palOffset);
 							u8 byte = ((0x0F & hashTable[k].length) << 4) + c4;
 							exp->Write1ByteData(byte);
 						}
@@ -354,9 +357,9 @@ bool ExportBitmap(ExportParameters * param, ExporterInterface * exp)
 							u32 rgb = hashTable[k].color;
 							u32* pal = (param->palType == PALETTE_MSX1) ? PaletteMSX : customPalette;
 							if (param->bUseTrans)
-								c4 = (rgb == transRGB) ? 0x0 : GetNearestColorIndex(rgb, pal, param->palCount);
+								c4 = (rgb == transRGB) ? 0x0 : GetNearestColorIndex(rgb, pal, param->palCount, param->palOffset);
 							else
-								c4 = GetNearestColorIndex(rgb, pal, param->palCount);
+								c4 = GetNearestColorIndex(rgb, pal, param->palCount, param->palOffset);
 							exp->Write1ByteData(c4);
 						}
 						else if (param->bpc == 8) // 8-bits GBR color
@@ -564,9 +567,9 @@ bool ExportBitmap(ExportParameters * param, ExporterInterface * exp)
 								{
 									u32* pal = (param->palType == PALETTE_MSX1) ? PaletteMSX : customPalette;
 									if (param->bUseTrans)
-										c4 = (rgb == transRGB) ? 0x0 : GetNearestColorIndex(rgb, pal, param->palCount);
+										c4 = (rgb == transRGB) ? 0x0 : GetNearestColorIndex(rgb, pal, param->palCount, param->palOffset);
 									else
-										c4 = GetNearestColorIndex(rgb, pal, param->palCount);
+										c4 = GetNearestColorIndex(rgb, pal, param->palCount, param->palOffset);
 									c4 &= 0x0F;
 
 									if ((i & 0x1) == 0)
@@ -584,9 +587,9 @@ bool ExportBitmap(ExportParameters * param, ExporterInterface * exp)
 								{
 									u32* pal = (param->palType == PALETTE_MSX1) ? PaletteMSX : customPalette;
 									if (param->bUseTrans)
-										c2 = (rgb == transRGB) ? 0x0 : GetNearestColorIndex(rgb, pal, param->palCount);
+										c2 = (rgb == transRGB) ? 0x0 : GetNearestColorIndex(rgb, pal, param->palCount, param->palOffset);
 									else
-										c2 = GetNearestColorIndex(rgb, pal, param->palCount);
+										c2 = GetNearestColorIndex(rgb, pal, param->palCount, param->palOffset);
 									c2 &= 0x03;
 
 									if ((i & 0x3) == 0)
@@ -658,7 +661,7 @@ bool ExportBitmap(ExportParameters * param, ExporterInterface * exp)
 	{
 		sprintf_s(strData, BUFFER_SIZE, "%s_palette", param->tabName.c_str());
 		exp->WriteTableBegin(TABLE_U8, strData, "Custom palette | Format: [X|R:3|X|B:3] [X:5|G:3]");
-		for (i32 i = 1; i <= param->palCount; i++)
+		for (i32 i = param->palOffset; i <= param->palCount; i++)
 		{
 			RGB24 color(customPalette[i]);
 			u8 c1 = ((color.R >> 5) << 4) + (color.B >> 5);
@@ -746,12 +749,15 @@ struct Chunk
 };
 
 ///
-u8 GetChunkId(std::vector<Chunk>& list, const Chunk& chunk)
+u8 GetChunkId(std::vector<Chunk>& list, const Chunk& chunk, ExportParameters* param)
 {
-	for (u8 i = 0; i < list.size(); i++)
+	if (!param->bGM2Unique)
 	{
-		if (memcmp(&list[i], &chunk, sizeof(Chunk)) == 0)
-			return i;
+		for (u8 i = 0; i < list.size(); i++)
+		{
+			if (memcmp(&list[i], &chunk, sizeof(Chunk)) == 0)
+				return i;
+		}
 	}
 	list.push_back(chunk);
 	return (u8)(list.size() - 1);
@@ -891,9 +897,11 @@ bool ExportGM2(ExportParameters* param, ExporterInterface* exp)
 		u32 numY = layer->numY / 8;
 
 		// Parse image
+		std::vector<u8> layoutBytes;
 		for (u32 ny = 0; ny < numY; ny++)
 		{
-			exp->WriteLineBegin();
+			if (!param->bGM2CompressNames || param->comp != COMPRESS_RLEp)
+				exp->WriteLineBegin();
 			for (u32 nx = 0; nx < numX; nx++)
 			{
 				Chunk chunk;
@@ -907,7 +915,7 @@ bool ExportGM2(ExportParameters* param, ExporterInterface* exp)
 					{
 						i32 idx = layer->posX + i + (nx * 8) + ((layer->posY + j + (ny * 8)) * imageX);
 						u32 c24 = 0xFFFFFF & ((u32*)bits)[idx];
-						u8 c4 = GetNearestColorIndex(c24, PaletteMSX, 16);
+						u8 c4 = GetNearestColorIndex(c24, PaletteMSX, 16, 1);
 						if (colors.empty()) // special case: first color
 						{
 							colors.push_back(c4);
@@ -931,11 +939,18 @@ bool ExportGM2(ExportParameters* param, ExporterInterface* exp)
 					chunk.Color[j] = (colors[1] << 4) + colors[0];
 				}
 
-				u8 patIdx = GetChunkId(chunkList, chunk);
-				exp->Write1ByteData(patIdx + param->offset);
+				u8 patIdx = GetChunkId(chunkList, chunk, param);
+				layoutBytes.push_back(patIdx + param->offset);
+				if (!param->bGM2CompressNames || param->comp != COMPRESS_RLEp)
+					exp->Write1ByteData(patIdx + param->offset);
 			}
-			exp->WriteLineEnd();
+			if (!param->bGM2CompressNames || param->comp != COMPRESS_RLEp)
+				exp->WriteLineEnd();
 		}
+
+		if (param->bGM2CompressNames && param->comp == COMPRESS_RLEp)
+			ExportRLEp(param, exp, layoutBytes);
+
 		exp->WriteTableEnd("");
 	}
 	i32 namesSize = exp->GetTotalBytes();

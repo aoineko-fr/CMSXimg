@@ -106,6 +106,7 @@ void PrintHelp()
 	printf("      msx1         Use default MSX1 palette\n");
 	printf("      custom       Generate a custom palette and add it to the output file\n");
 	printf("   -palcount n     Number of color in the custom palette to create (default: 15)\n");
+	printf("   -paloff n       Index offset of the palette (default: 1)\n");
 	printf("   -compress ?\n");
 	printf("      none         No compression (default)\n");
 	printf("      crop16       Crop image to non transparent area (4-bits, max size 16x16)\n");
@@ -150,6 +151,8 @@ void PrintHelp()
 	printf("   -at x           Data starting address (can be decimal or hexadecimal starting with '0x')\n");
 	printf("   -def            Add defines for each table\n");
 	printf("   -notitle        Remove the ASCII-art title in top of exported text file\n");
+	printf("   --gm2compnames  GM2 mode: Compress names/layout table (default: false)\n");
+	printf("   --gm2unique     GM2 mode: Export all unique tiles (default: false)\n");
 	printf("   -help           Display this help\n");
 }
 
@@ -191,13 +194,13 @@ int main(int argc, const char* argv[])
 
 	FreeImage_Initialise();
 
-	CMSX_FileFormat outFormat = FORMAT_Auto;
+	CMSX::FileFormat outFormat = CMSX::FILEFORMAT_Auto;
 	ExportParameters param;
 	i32 i;
 	bool bAutoCompress = false;
 	bool bBestCompress = false;
 
-	if(argc < 2)
+	if((argc < 2) || (CMSX::StrEqual(argv[1], "-help")))
 	{
 		PrintHelp();
 		return 1;
@@ -221,13 +224,13 @@ int main(int argc, const char* argv[])
 		{
 			i++;
 			if (CMSX::StrEqual(argv[i], "auto"))
-				outFormat = FORMAT_Auto;
+				outFormat = CMSX::FILEFORMAT_Auto;
 			else if (CMSX::StrEqual(argv[i], "c"))
-				outFormat = FORMAT_C;
+				outFormat = CMSX::FILEFORMAT_C;
 			else if (CMSX::StrEqual(argv[i], "asm"))
-				outFormat = FORMAT_Asm;
+				outFormat = CMSX::FILEFORMAT_Asm;
 			else if (CMSX::StrEqual(argv[i], "bin"))
-				outFormat = FORMAT_Bin;
+				outFormat = CMSX::FILEFORMAT_Bin;
 		}
 		else if(CMSX::StrEqual(argv[i], "-pos")) // Extract start position
 		{
@@ -279,6 +282,10 @@ int main(int argc, const char* argv[])
 		{
 			param.palCount = atoi(argv[++i]);
 		}		
+		else if (CMSX::StrEqual(argv[i], "-paloff")) // Palette offset
+		{
+			param.palOffset = atoi(argv[++i]);
+		}
 		else if(CMSX::StrEqual(argv[i], "-compress")) // Compression method
 		{
 			i++;
@@ -333,27 +340,27 @@ int main(int argc, const char* argv[])
 		{
 			i++;
 			if(CMSX::StrEqual(argv[i], "dec"))
-				param.format = DATA_Decimal;
+				param.format = CMSX::DATAFORMAT_Decimal;
 			else if(CMSX::StrEqual(argv[i], "hexa"))
-				param.format = DATA_Hexa;
+				param.format = CMSX::DATAFORMAT_Hexa;
 			else if(CMSX::StrEqual(argv[i], "hexa0x"))
-				param.format = DATA_HexaC;
+				param.format = CMSX::DATAFORMAT_HexaC;
 			else if(CMSX::StrEqual(argv[i], "hexaH"))
-				param.format = DATA_HexaASM;
+				param.format = CMSX::DATAFORMAT_HexaASM;
 			else if(CMSX::StrEqual(argv[i], "hexa$"))
-				param.format = DATA_HexaPascal;
+				param.format = CMSX::DATAFORMAT_HexaPascal;
 			else if (CMSX::StrEqual(argv[i], "hexa&H"))
-				param.format = DATA_HexaBasic;
+				param.format = CMSX::DATAFORMAT_HexaBasic;
 			else if (CMSX::StrEqual(argv[i], "hexa&"))
-				param.format = DATA_HexaAnd;
+				param.format = CMSX::DATAFORMAT_HexaAnd;
 			else if (CMSX::StrEqual(argv[i], "hexa#"))
-				param.format = DATA_HexaSharp;
+				param.format = CMSX::DATAFORMAT_HexaSharp;
 			else if(CMSX::StrEqual(argv[i], "bin"))
-				param.format = DATA_Binary;
+				param.format = CMSX::DATAFORMAT_Binary;
 			else if (CMSX::StrEqual(argv[i], "bin0b"))
-				param.format = DATA_BinaryC;
+				param.format = CMSX::DATAFORMAT_BinaryC;
 			else if (CMSX::StrEqual(argv[i], "binB"))
-				param.format = DATA_BinaryASM;
+				param.format = CMSX::DATAFORMAT_BinaryASM;
 		}
 		else if (CMSX::StrEqual(argv[i], "-mode")) // Exporter mode
 		{
@@ -468,6 +475,15 @@ int main(int argc, const char* argv[])
 			}
 			param.layers.push_back(l);
 		}
+		else if (CMSX::StrEqual(argv[i], "--gm2compnames")) // GM2 names compression
+		{
+			param.bGM2CompressNames = true;
+		}
+		else if (CMSX::StrEqual(argv[i], "--gm2unique")) // GM2 names compression
+		{
+			param.bGM2Unique = true;
+		}
+
 	}
 
 	//-------------------------------------------------------------------------
@@ -582,16 +598,16 @@ int main(int argc, const char* argv[])
 	{
 		switch (outFormat)
 		{
-		case FORMAT_C:
+		case CMSX::FILEFORMAT_C:
 			param.outFile = RemoveExt(param.inFile) + ".h";
 			break;
-		case FORMAT_Asm:
+		case CMSX::FILEFORMAT_Asm:
 			param.outFile = RemoveExt(param.inFile) + ".asm";
 			break;
-		case FORMAT_Bin:
+		case CMSX::FILEFORMAT_Bin:
 			param.outFile = RemoveExt(param.inFile) + ".bin";
 			break;
-		case FORMAT_Auto:
+		case CMSX::FILEFORMAT_Auto:
 		default:
 			printf("Error: Output file is required if format is set to 'auto'!\n");
 			return 1;
@@ -662,21 +678,21 @@ int main(int argc, const char* argv[])
 	// Convert
 	if((param.inFile != "") && (param.outFile != ""))
 	{
-		if((outFormat == FORMAT_C) || ((outFormat == FORMAT_Auto) && (HaveExt(param.outFile, ".h") || HaveExt(param.outFile, ".inc"))))
+		if((outFormat == CMSX::FILEFORMAT_C) || ((outFormat == CMSX::FILEFORMAT_Auto) && (HaveExt(param.outFile, ".h") || HaveExt(param.outFile, ".inc"))))
 		{
 			ExporterInterface* exp = new ExporterC(param.format, &param);
 			bSucceed = ParseImage(&param, exp);
 			size = exp->GetTotalBytes();
 			delete exp;
 		}
-		else if((outFormat == FORMAT_Asm) || ((outFormat == FORMAT_Auto) && (HaveExt(param.outFile, ".s") || HaveExt(param.outFile, ".asm"))))
+		else if((outFormat == CMSX::FILEFORMAT_Asm) || ((outFormat == CMSX::FILEFORMAT_Auto) && (HaveExt(param.outFile, ".s") || HaveExt(param.outFile, ".asm"))))
 		{
 			ExporterInterface* exp = new ExporterASM(param.format, &param);
 			bSucceed = ParseImage(&param, exp);
 			size = exp->GetTotalBytes();
 			delete exp;
 		}
-		else if((outFormat == FORMAT_Bin) || ((outFormat == FORMAT_Auto) && (HaveExt(param.outFile, ".bin") || HaveExt(param.outFile, ".raw"))))
+		else if((outFormat == CMSX::FILEFORMAT_Bin) || ((outFormat == CMSX::FILEFORMAT_Auto) && (HaveExt(param.outFile, ".bin") || HaveExt(param.outFile, ".raw"))))
 		{
 			ExporterInterface* exp = new ExporterBin(param.format, &param);
 			bSucceed = ParseImage(&param, exp);
