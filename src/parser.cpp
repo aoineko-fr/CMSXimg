@@ -44,7 +44,7 @@ u8 GetNearestColorIndex(u32 color, u32* pal, i32 count, i32 offset)
 
 	RGB24 c = RGB24(color);
 
-	for (i32 i = offset; i <= count + 1; i++)
+	for (i32 i = offset; i <= count + offset; i++)
 	{
 		RGB24 p = RGB24(pal[i]);
 
@@ -661,7 +661,7 @@ bool ExportBitmap(ExportParameters * param, ExporterInterface * exp)
 	{
 		sprintf_s(strData, BUFFER_SIZE, "%s_palette", param->tabName.c_str());
 		exp->WriteTableBegin(TABLE_U8, strData, "Custom palette | Format: [X|R:3|X|B:3] [X:5|G:3]");
-		for (i32 i = param->palOffset; i <= param->palCount; i++)
+		for (i32 i = param->palOffset; i <= param->palOffset + param->palCount; i++)
 		{
 			RGB24 color(customPalette[i]);
 			u8 c1 = ((color.R >> 5) << 4) + (color.B >> 5);
