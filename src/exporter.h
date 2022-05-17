@@ -77,6 +77,7 @@ struct ExportParameters
 	PaletteType palType;		///< Palette type (@see PaletteType)
 	i32 palCount;				///< Number of colors in the palette
 	i32 palOffset;				///< Index offset of the palette
+	bool pal24;					///< Use 24-bits palette (v9990)
 	CMSXi_Compressor comp;		///< Compressor to use (@see CMSXi_Compressor)
 	CMSX::DataFormat format;	///< Data format to use for text export (@see CMSX_DataFormat)
 	bool bSkipEmpty;			///< Skip empty block (be aware this option change the block index)
@@ -98,6 +99,7 @@ struct ExportParameters
 	std::vector<Layer> layers;	///< Block layers
 	bool bGM2CompressNames;		///< GM2 mode: Compress names/layout table
 	bool bGM2Unique;			///< GM2 mode: Export all unique tiles
+	bool bBLOAD;				///< Add header for BLOAD image
 
 	ExportParameters()
 	{
@@ -121,6 +123,7 @@ struct ExportParameters
 		palType = PALETTE_MSX1;
 		palCount = -1;
 		palOffset = 1;
+		pal24 = false;
 		comp = COMPRESS_None;
 		format = CMSX::DATAFORMAT_Hexa;
 		bSkipEmpty = false;
@@ -141,6 +144,7 @@ struct ExportParameters
 		bTitle = true;
 		bGM2CompressNames = false;
 		bGM2Unique = false;
+		bBLOAD = false;
 	}
 };
 

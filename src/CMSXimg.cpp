@@ -105,8 +105,9 @@ void PrintHelp()
 	printf("   -pal            Palette to use for 16 colors mode\n");
 	printf("      msx1         Use default MSX1 palette\n");
 	printf("      custom       Generate a custom palette and add it to the output file\n");
-	printf("   -palcount n     Number of color in the custom palette to create (default: 15)\n");
-	printf("   -paloff n       Index offset of the palette (default: 1)\n");
+	printf("   --palcount n    Number of color in the custom palette to create (default: 15)\n");
+	printf("   --paloff n      Index offset of the palette (default: 1)\n");
+	printf("   --pal24	       Use 24-bits palette (for v9990; default: false)\n");
 	printf("   -compress ?\n");
 	printf("      none         No compression (default)\n");
 	printf("      crop16       Crop image to non transparent area (4-bits, max size 16x16)\n");
@@ -153,6 +154,7 @@ void PrintHelp()
 	printf("   -notitle        Remove the ASCII-art title in top of exported text file\n");
 	printf("   --gm2compnames  GM2 mode: Compress names/layout table (default: false)\n");
 	printf("   --gm2unique     GM2 mode: Export all unique tiles (default: false)\n");
+	printf("   --bload         Add header for BLOAD image (default: false)\n");
 	printf("   -help           Display this help\n");
 }
 
@@ -278,13 +280,17 @@ int main(int argc, const char* argv[])
 			else if (CMSX::StrEqual(argv[i], "custom"))
 				param.palType = PALETTE_Custom;
 		}
-		else if (CMSX::StrEqual(argv[i], "-palcount")) // Palette count
+		else if (CMSX::StrEqual(argv[i], "--palcount") || CMSX::StrEqual(argv[i], "-palcount")) // Palette count
 		{
 			param.palCount = atoi(argv[++i]);
 		}		
-		else if (CMSX::StrEqual(argv[i], "-paloff")) // Palette offset
+		else if (CMSX::StrEqual(argv[i], "--paloff") || CMSX::StrEqual(argv[i], "-paloff")) // Palette offset
 		{
 			param.palOffset = atoi(argv[++i]);
+		}
+		else if (CMSX::StrEqual(argv[i], "--pal24") || CMSX::StrEqual(argv[i], "-pal24")) // Palette 24b
+		{
+			param.pal24 = true;
 		}
 		else if(CMSX::StrEqual(argv[i], "-compress")) // Compression method
 		{
@@ -483,7 +489,10 @@ int main(int argc, const char* argv[])
 		{
 			param.bGM2Unique = true;
 		}
-
+		else if (CMSX::StrEqual(argv[i], "--bload")) // Add header for BLOAD image
+		{
+			param.bBLOAD = true;
+		}
 	}
 
 	//-------------------------------------------------------------------------

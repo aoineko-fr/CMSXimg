@@ -205,9 +205,7 @@ bool ExportBitmap(ExportParameters * param, ExporterInterface * exp)
 	sprtAddr.resize(param->numX * param->numY);
 	exp->WriteTableBegin(TABLE_U8, param->tabName, "Data table");
 
-	//-------------------------------------------------------------------------
 	// Font header
-
 	if (param->bAddFont)
 	{
 		exp->WriteCommentLine("Font header data");
@@ -217,6 +215,20 @@ bool ExportBitmap(ExportParameters * param, ExporterInterface * exp)
 		exp->Write1ByteLine((u8)param->fontFirst, strData);
 		sprintf_s(strData, BUFFER_SIZE, "Last character ASCII code (%c)", param->fontLast);
 		exp->Write1ByteLine((u8)param->fontLast, strData);
+	}
+
+	// BLOAD header
+	if (param->bBLOAD)
+	{
+		exp->WriteCommentLine("BLOAD header data");
+		exp->Write1ByteLine(0xFE, "");
+		exp->Write1ByteLine(0, "");
+		exp->Write1ByteLine(0, "");
+		u16 size = (u16)(param->sizeX * param->sizeY * param->numX * param->numY * param->bpc / 8) - 1;
+		exp->Write1ByteLine(size & 0xFF, "");
+		exp->Write1ByteLine(size >> 8, "");
+		exp->Write1ByteLine(0, "");
+		exp->Write1ByteLine(0, "");
 	}
 
 	// Parse source image
@@ -660,14 +672,31 @@ bool ExportBitmap(ExportParameters * param, ExporterInterface * exp)
 	if (((param->bpc == 2) || (param->bpc == 4)) && (param->palType == PALETTE_Custom))
 	{
 		sprintf_s(strData, BUFFER_SIZE, "%s_palette", param->tabName.c_str());
-		exp->WriteTableBegin(TABLE_U8, strData, "Custom palette | Format: [X|R:3|X|B:3] [X:5|G:3]");
-		for (i32 i = param->palOffset; i <= param->palOffset + param->palCount; i++)
+		if (param->pal24)
 		{
-			RGB24 color(customPalette[i]);
-			u8 c1 = ((color.R >> 5) << 4) + (color.B >> 5);
-			u8 c2 = (color.G >> 5);
-			sprintf_s(strData, BUFFER_SIZE, "[%2i] #%06X", i, customPalette[i]);
-			exp->Write2BytesLine(u8(c1), u8(c2), strData);
+			exp->WriteTableBegin(TABLE_U8, strData, "Custom palette | Format: [x:3|R:5] [x:3|G:5] [x:3|B:5] (v9990)");
+			for (i32 i = param->palOffset; i <= param->palOffset + param->palCount; i++)
+			{
+				exp->WriteLineBegin();
+				RGB24 color(customPalette[i]);
+				exp->Write1ByteData(color.R >> 3);
+				exp->Write1ByteData(color.G >> 3);
+				exp->Write1ByteData(color.B >> 3);
+				sprintf_s(strData, BUFFER_SIZE, "[%2i] #%06X", i, customPalette[i]);
+				exp->WriteCommentLine(strData);
+			}
+		}
+		else
+		{
+			exp->WriteTableBegin(TABLE_U8, strData, "Custom palette | Format: [x|R:3|x|B:3] [x:5|G:3] (v9938)");
+			for (i32 i = param->palOffset; i <= param->palOffset + param->palCount; i++)
+			{
+				RGB24 color(customPalette[i]);
+				u8 c1 = ((color.R >> 5) << 4) + (color.B >> 5);
+				u8 c2 = (color.G >> 5);
+				sprintf_s(strData, BUFFER_SIZE, "[%2i] #%06X", i, customPalette[i]);
+				exp->Write2BytesLine(u8(c1), u8(c2), strData);
+			}
 		}
 		exp->WriteTableEnd("");
 	}
