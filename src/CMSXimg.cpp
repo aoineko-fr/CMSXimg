@@ -496,12 +496,12 @@ int main(int argc, const char* argv[])
 	}
 
 	//-------------------------------------------------------------------------
-	if (param.palCount == -1) // Set default palette count
+	if (param.palCount < 0) // Set default palette count
 	{
 		if (param.bpc == 2)
-			param.palCount = 3;
+			param.palCount = 4 - param.palOffset;
 		else if (param.bpc == 4)
-			param.palCount = 15;
+			param.palCount = 16 - param.palOffset;
 	}
 
 	//-------------------------------------------------------------------------
@@ -598,6 +598,9 @@ int main(int argc, const char* argv[])
 
 	//-------------------------------------------------------------------------
 	// Validate parameters
+
+	//.........................................................................
+	// Errors
 	if (param.inFile == "")
 	{
 		printf("Error: Input file required!\n");
@@ -637,6 +640,14 @@ int main(int argc, const char* argv[])
 		printf("Error: Transparency and Opacity can't be use together!\n");
 		return 1;
 	}
+	if (((param.bpc == 2) || (param.bpc == 4)) && (param.palCount < 1))
+	{
+		printf("Error: Palette count can't be less that 1 with 2-bits and 4-bits color mode!\n");
+		return 1;
+	}
+
+	//.........................................................................
+	// Warnings
 	if ((param.sizeX == 0) || (param.sizeY == 0))
 	{
 		printf("Warning: sizeX or sizeY is 0. The whole image will be exported.\n");
@@ -665,15 +676,15 @@ int main(int argc, const char* argv[])
 	{
 		printf("Warning: -skip as no effect without transparency color.\n");
 	}
-	if ((param.bpc == 2) && (param.palCount > 3))
+	if ((param.bpc == 2) && (param.palOffset + param.palCount > 4))
 	{
-		printf("Warning: -palcount is %i but can't be more than 3 with 2-bits color (color index 0 is always transparent). Continue with 3 as value.\n", param.palCount);
-		param.palCount = 3;
+		printf("Warning: -paloffset is %i and -palcount is %i but total can't be more than 4 with 2-bits color (color index 0 is always transparent). Continue with 4 as value.\n", param.palOffset, param.palCount);
+		param.palCount = 4 - param.palOffset;
 	}
-	if ((param.bpc == 4) && (param.palCount > 15))
+	if ((param.bpc == 4) && (param.palOffset + param.palCount > 16))
 	{
-		printf("Warning: -palcount is %i but can't be more than 15 with 4-bits color (color index 0 is always transparent). Continue with 15 as value.\n", param.palCount);
-		param.palCount = 15;
+		printf("Warning: -paloffset is %i and -palcount is %i but total can't be more than 16 with 4-bits color (color index 0 is always transparent). Continue with 16 as value.\n", param.palOffset, param.palCount);
+		param.palCount = 16 - param.palOffset;
 	}
 	if ((param.dither != DITHER_None) && (param.bpc != 1))
 	{

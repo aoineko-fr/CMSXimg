@@ -238,7 +238,7 @@ public:
 		WriteCommentLine(strData);
 
 		// Add author & license
-		WriteCommentLine("by Guillaume \"Aoineko\" Blanchard (2021) under CC BY-SA free license");
+		WriteCommentLine("by Guillaume \"Aoineko\" Blanchard (2022) under CC BY-SA free license");
 
 		// Add generation parameters
 		WriteCommentLine("Generation parameters:");

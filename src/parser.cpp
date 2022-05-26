@@ -118,11 +118,11 @@ bool ExportBitmap(ExportParameters * param, ExporterInterface * exp)
 
 	// Get custom palette for 16 colors mode
 	u32 customPalette[16];
-	RGBQUAD defaultPal[3] = {
+	/*RGBQUAD defaultPal[3] = {
 		{ 0x00, 0x00, 0x00, 0 },
 		{ 0x80, 0x80, 0x80, 0 },
 		{ 0xFF, 0xFF, 0xFF, 0 },
-	};
+	};*/
 	if ((param->bpc == 4) && (param->palType == PALETTE_Custom))
 	{
 		if (param->bUseTrans)
@@ -130,9 +130,9 @@ bool ExportBitmap(ExportParameters * param, ExporterInterface * exp)
 			u32 black = 0;
 			i32 res = FreeImage_ApplyColorMapping(dib32, (RGBQUAD*)&transRGB, (RGBQUAD*)&black, 1, true, false); // @warning: must be call AFTER retreving raw data!
 		}
-		FIBITMAP* dib4 = FreeImage_ColorQuantizeEx(dib32, FIQ_LFPQUANT, param->palCount, 3, defaultPal); // Try Lossless Fast Pseudo-Quantization algorithm (if there are 15 colors or less)
+		FIBITMAP* dib4 = FreeImage_ColorQuantizeEx(dib32, FIQ_LFPQUANT, param->palCount, 0, NULL /*3, defaultPal*/); // Try Lossless Fast Pseudo-Quantization algorithm (if there are 15 colors or less)
 		if(dib4 == NULL)
-			dib4 = FreeImage_ColorQuantizeEx(dib32, FIQ_WUQUANT, param->palCount, 3, defaultPal); // Else, use Efficient Statistical Computations for Optimal Color Quantization
+			dib4 = FreeImage_ColorQuantizeEx(dib32, FIQ_WUQUANT, param->palCount, 0, NULL /*3, defaultPal*/); // Else, use Efficient Statistical Computations for Optimal Color Quantization
 		RGBQUAD* pal = FreeImage_GetPalette(dib4);
 		
 		for (i32 c = 0; c < param->palOffset; c++)
@@ -148,9 +148,9 @@ bool ExportBitmap(ExportParameters * param, ExporterInterface * exp)
 			u32 black = 0;
 			i32 res = FreeImage_ApplyColorMapping(dib32, (RGBQUAD*)&transRGB, (RGBQUAD*)&black, 1, true, false); // @warning: must be call AFTER retreving raw data!
 		}
-		FIBITMAP* dib2 = FreeImage_ColorQuantizeEx(dib32, FIQ_LFPQUANT, param->palCount, 3, defaultPal); // Try Lossless Fast Pseudo-Quantization algorithm (if there are 3 colors or less)
+		FIBITMAP* dib2 = FreeImage_ColorQuantizeEx(dib32, FIQ_LFPQUANT, param->palCount, 0, NULL /*3, defaultPal*/); // Try Lossless Fast Pseudo-Quantization algorithm (if there are 3 colors or less)
 		if (dib2 == NULL)
-			dib2 = FreeImage_ColorQuantizeEx(dib32, FIQ_WUQUANT, param->palCount, 3, defaultPal); // Else, use Efficient Statistical Computations for Optimal Color Quantization
+			dib2 = FreeImage_ColorQuantizeEx(dib32, FIQ_WUQUANT, param->palCount, 0, NULL /*3, defaultPal*/); // Else, use Efficient Statistical Computations for Optimal Color Quantization
 		RGBQUAD* pal = FreeImage_GetPalette(dib2);
 		for (i32 c = 0; c < param->palOffset; c++)
 			customPalette[c] = 0;
@@ -675,7 +675,7 @@ bool ExportBitmap(ExportParameters * param, ExporterInterface * exp)
 		if (param->pal24)
 		{
 			exp->WriteTableBegin(TABLE_U8, strData, "Custom palette | Format: [x:3|R:5] [x:3|G:5] [x:3|B:5] (v9990)");
-			for (i32 i = param->palOffset; i <= param->palOffset + param->palCount; i++)
+			for (i32 i = param->palOffset; i < param->palOffset + param->palCount; i++)
 			{
 				exp->WriteLineBegin();
 				RGB24 color(customPalette[i]);
@@ -689,7 +689,7 @@ bool ExportBitmap(ExportParameters * param, ExporterInterface * exp)
 		else
 		{
 			exp->WriteTableBegin(TABLE_U8, strData, "Custom palette | Format: [x|R:3|x|B:3] [x:5|G:3] (v9938)");
-			for (i32 i = param->palOffset; i <= param->palOffset + param->palCount; i++)
+			for (i32 i = param->palOffset; i < param->palOffset + param->palCount; i++)
 			{
 				RGB24 color(customPalette[i]);
 				u8 c1 = ((color.R >> 5) << 4) + (color.B >> 5);
